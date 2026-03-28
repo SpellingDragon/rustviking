@@ -1,0 +1,35 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Data directories
+/data/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Coverage
+coverage/
+*.profraw
+
+# Benchmark results
+benches/results/

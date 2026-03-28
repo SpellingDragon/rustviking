@@ -1,0 +1,68 @@
+[package]
+name = "rustviking"
+version = "0.1.0"
+edition = "2021"
+description = "RustViking - OpenViking Core in Rust"
+
+[[bin]]
+name = "rustviking"
+path = "src/main.rs"
+
+[lib]
+name = "rustviking"
+path = "src/lib.rs"
+
+[dependencies]
+# AGFS 核心
+radix_trie = "0.2"
+
+# 存储层
+rocksdb = "0.21"
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# 向量计算
+faer = "0.20"
+half = "2"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+anyhow = "1.0"
+thiserror = "2.0"
+
+# 序列化 / 配置
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 其他
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+bytes = "1"
+croaring = "1.0"
+
+[dev-dependencies]
+tempfile = "3"
+criterion = { version = "0.5", features = ["html_reports"] }
+assert_cmd = "2"
+predicates = "3"
+
+# Benchmark targets
+[[bench]]
+name = "kv_bench"
+harness = false
+
+[[bench]]
+name = "vector_bench"
+harness = false
+
+[[bench]]
+name = "bitmap_bench"
+harness = false
+
+[[bench]]
+name = "agfs_bench"
+harness = false

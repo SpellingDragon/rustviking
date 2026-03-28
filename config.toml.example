@@ -1,0 +1,26 @@
+# RustViking Configuration
+
+[storage]
+path = "./data/rustviking"
+create_if_missing = true
+max_open_files = 10000
+use_fsync = false
+
+[vector]
+dimension = 768
+index_type = "ivf_pq"
+
+[vector.ivf_pq]
+num_partitions = 256
+num_sub_vectors = 16
+pq_bits = 8
+metric = "l2"
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+[agfs]
+default_scope = "resources"
+default_account = "default"
