@@ -5,8 +5,8 @@
 pub mod localfs;
 pub mod memory;
 
-use crate::error::{Result, RustVikingError};
 use crate::agfs::FileSystem;
+use crate::error::{Result, RustVikingError};
 
 /// Plugin metadata
 pub struct PluginInfo {
@@ -19,16 +19,16 @@ pub struct PluginInfo {
 pub trait StoragePlugin: FileSystem {
     /// Plugin name
     fn name(&self) -> &str;
-    
+
     /// Plugin version
     fn version(&self) -> &str;
-    
+
     /// Validate configuration
     fn validate_config(&self, config: &toml::Value) -> Result<()>;
-    
+
     /// Initialize plugin
     fn initialize(&self, config: &toml::Value) -> Result<()>;
-    
+
     /// Shutdown plugin
     fn shutdown(&self) -> Result<()>;
 }
@@ -58,9 +58,11 @@ impl PluginRegistry {
     }
 
     pub fn create(&self, name: &str) -> Result<Box<dyn StoragePlugin>> {
-        let factory = self.factories.get(name)
+        let factory = self
+            .factories
+            .get(name)
             .ok_or_else(|| RustVikingError::PluginNotFound(name.into()))?;
-        
+
         Ok(factory())
     }
 

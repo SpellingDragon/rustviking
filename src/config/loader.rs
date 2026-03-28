@@ -1,8 +1,8 @@
 //! Configuration loader
 
-use serde::{Serialize, Deserialize};
 use crate::error::{Result, RustVikingError};
 use crate::storage::config::StorageConfig;
+use serde::{Deserialize, Serialize};
 
 /// Vector index configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,8 +15,12 @@ pub struct VectorConfig {
     pub ivf_pq: Option<IvfPqConfig>,
 }
 
-fn default_dimension() -> usize { 768 }
-fn default_index_type() -> String { "ivf_pq".to_string() }
+fn default_dimension() -> usize {
+    768
+}
+fn default_index_type() -> String {
+    "ivf_pq".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IvfPqConfig {
@@ -30,10 +34,18 @@ pub struct IvfPqConfig {
     pub metric: String,
 }
 
-fn default_partitions() -> usize { 256 }
-fn default_sub_vectors() -> usize { 16 }
-fn default_pq_bits() -> usize { 8 }
-fn default_metric() -> String { "l2".to_string() }
+fn default_partitions() -> usize {
+    256
+}
+fn default_sub_vectors() -> usize {
+    16
+}
+fn default_pq_bits() -> usize {
+    8
+}
+fn default_metric() -> String {
+    "l2".to_string()
+}
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,9 +58,15 @@ pub struct LoggingConfig {
     pub output: String,
 }
 
-fn default_log_level() -> String { "info".to_string() }
-fn default_log_format() -> String { "json".to_string() }
-fn default_log_output() -> String { "stdout".to_string() }
+fn default_log_level() -> String {
+    "info".to_string()
+}
+fn default_log_format() -> String {
+    "json".to_string()
+}
+fn default_log_output() -> String {
+    "stdout".to_string()
+}
 
 /// AGFS configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,11 +77,15 @@ pub struct AgfsConfig {
     pub default_account: String,
 }
 
-fn default_scope() -> String { "resources".to_string() }
-fn default_account() -> String { "default".to_string() }
+fn default_scope() -> String {
+    "resources".to_string()
+}
+fn default_account() -> String {
+    "default".to_string()
+}
 
 /// Root configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub storage: StorageConfig,
@@ -80,26 +102,15 @@ impl Config {
     pub fn load(path: &str) -> Result<Self> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| RustVikingError::Config(format!("Failed to read config: {}", e)))?;
-        
+
         let config: Config = toml::from_str(&content)
             .map_err(|e| RustVikingError::Config(format!("Failed to parse config: {}", e)))?;
-        
+
         Ok(config)
     }
 
     /// Load with fallback to defaults
     pub fn load_or_default(path: &str) -> Self {
         Self::load(path).unwrap_or_default()
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            storage: StorageConfig::default(),
-            vector: None,
-            logging: None,
-            agfs: None,
-        }
     }
 }

@@ -96,8 +96,8 @@ impl IvfPqIndex {
             // Update centroids
             for i in 0..k {
                 if counts[i] > 0 {
-                    for j in 0..self.dimension {
-                        new_centroids[i][j] /= counts[i] as f32;
+                    for val in new_centroids[i].iter_mut().take(self.dimension) {
+                        *val /= counts[i] as f32;
                     }
                 } else {
                     // Keep old centroid if no vectors assigned
@@ -198,9 +198,7 @@ impl VectorIndex for IvfPqIndex {
             .enumerate()
             .map(|(i, c)| (i, self.computer.l2_distance(query, c)))
             .collect();
-        partition_dists.sort_by(|a, b| {
-            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        partition_dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         let selected: Vec<usize> = partition_dists
             .into_iter()
             .take(nprobe)

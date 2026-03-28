@@ -52,7 +52,9 @@ impl VikingUri {
         }
 
         if account.is_empty() {
-            return Err(RustVikingError::InvalidUri("Account cannot be empty".into()));
+            return Err(RustVikingError::InvalidUri(
+                "Account cannot be empty".into(),
+            ));
         }
 
         Ok(Self {

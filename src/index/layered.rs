@@ -70,7 +70,9 @@ impl LayeredIndex {
 
         // Sort by score
         all_results.sort_by(|a, b| {
-            a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal)
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         all_results.truncate(k);
 

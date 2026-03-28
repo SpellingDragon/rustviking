@@ -2,14 +2,14 @@
 //!
 //! Tests for thread safety and concurrent operations.
 
+use rustviking::agfs::{FileSystem, WriteFlag};
+use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType, VectorIndex};
+use rustviking::plugins::memory::MemoryPlugin;
+use rustviking::storage::config::StorageConfig;
+use rustviking::storage::{KvStore, RocksKvStore};
 use std::sync::Arc;
 use std::thread;
 use tempfile::TempDir;
-use rustviking::storage::{KvStore, RocksKvStore};
-use rustviking::storage::config::StorageConfig;
-use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType, VectorIndex};
-use rustviking::plugins::memory::MemoryPlugin;
-use rustviking::agfs::{FileSystem, WriteFlag};
 
 // ============================================================================
 // KV Store Concurrency Tests
@@ -33,7 +33,7 @@ fn test_kv_concurrent_writes() {
     let (store, _temp_dir) = create_temp_kv_store();
     let num_threads = 4;
     let writes_per_thread = 100;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let store = Arc::clone(&store);
@@ -41,16 +41,18 @@ fn test_kv_concurrent_writes() {
                 for i in 0..writes_per_thread {
                     let key = format!("thread_{}_key_{}", thread_id, i);
                     let value = format!("value_{}_{}", thread_id, i);
-                    store.put(key.as_bytes(), value.as_bytes()).expect("Put failed");
+                    store
+                        .put(key.as_bytes(), value.as_bytes())
+                        .expect("Put failed");
                 }
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
-    
+
     // Verify all keys were written
     let mut found_count = 0;
     for thread_id in 0..num_threads {
@@ -67,18 +69,20 @@ fn test_kv_concurrent_writes() {
 #[test]
 fn test_kv_concurrent_reads() {
     let (store, _temp_dir) = create_temp_kv_store();
-    
+
     // Pre-populate data
     for i in 0..1000 {
         let key = format!("key_{}", i);
         let value = format!("value_{}", i);
-        store.put(key.as_bytes(), value.as_bytes()).expect("Put failed");
+        store
+            .put(key.as_bytes(), value.as_bytes())
+            .expect("Put failed");
     }
-    
+
     let store = Arc::new(store);
     let num_threads = 8;
     let reads_per_thread = 100;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|_| {
             let store = Arc::clone(&store);
@@ -91,7 +95,7 @@ fn test_kv_concurrent_reads() {
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -100,17 +104,17 @@ fn test_kv_concurrent_reads() {
 #[test]
 fn test_kv_concurrent_read_write() {
     let (store, _temp_dir) = create_temp_kv_store();
-    
+
     // Pre-populate some data
     for i in 0..100 {
         let key = format!("key_{}", i);
         store.put(key.as_bytes(), b"initial").expect("Put failed");
     }
-    
+
     let store = Arc::new(store);
     let num_readers = 4;
     let num_writers = 2;
-    
+
     let handles: Vec<_> = (0..num_readers)
         .map(|_| {
             let store = Arc::clone(&store);
@@ -131,7 +135,7 @@ fn test_kv_concurrent_read_write() {
             })
         }))
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -141,7 +145,7 @@ fn test_kv_concurrent_read_write() {
 fn test_kv_concurrent_batch_writes() {
     let (store, _temp_dir) = create_temp_kv_store();
     let num_threads = 4;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let store = Arc::clone(&store);
@@ -157,7 +161,7 @@ fn test_kv_concurrent_batch_writes() {
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -184,14 +188,14 @@ fn generate_vector(seed: u64, dim: usize) -> Vec<f32> {
 #[test]
 fn test_vector_concurrent_inserts() {
     let index = create_test_index();
-    
+
     // Train first
     let training: Vec<Vec<f32>> = (0..50).map(|i| generate_vector(i, 8)).collect();
     index.train(&training).expect("Train failed");
-    
+
     let num_threads = 4;
     let inserts_per_thread = 50;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let index = Arc::clone(&index);
@@ -204,11 +208,11 @@ fn test_vector_concurrent_inserts() {
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
-    
+
     // Verify count
     let count = index.count();
     assert_eq!(count, (num_threads * inserts_per_thread) as u64);
@@ -217,20 +221,20 @@ fn test_vector_concurrent_inserts() {
 #[test]
 fn test_vector_concurrent_searches() {
     let index = create_test_index();
-    
+
     // Train and populate
     let training: Vec<Vec<f32>> = (0..50).map(|i| generate_vector(i, 8)).collect();
     index.train(&training).expect("Train failed");
-    
+
     for i in 0..500 {
         let vector = generate_vector(i as u64, 8);
         index.insert(i as u64, &vector, 2).expect("Insert failed");
     }
-    
+
     let index = Arc::new(index);
     let num_threads = 8;
     let searches_per_thread = 50;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|_| {
             let index = Arc::clone(&index);
@@ -243,7 +247,7 @@ fn test_vector_concurrent_searches() {
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -252,21 +256,21 @@ fn test_vector_concurrent_searches() {
 #[test]
 fn test_vector_concurrent_insert_and_search() {
     let index = create_test_index();
-    
+
     // Train first
     let training: Vec<Vec<f32>> = (0..50).map(|i| generate_vector(i, 8)).collect();
     index.train(&training).expect("Train failed");
-    
+
     // Pre-populate some data
     for i in 0..100 {
         let vector = generate_vector(i as u64, 8);
         index.insert(i as u64, &vector, 2).expect("Insert failed");
     }
-    
+
     let index = Arc::new(index);
     let num_inserters = 2;
     let num_searchers = 4;
-    
+
     let handles: Vec<_> = (0..num_inserters)
         .map(|thread_id| {
             let index = Arc::clone(&index);
@@ -288,7 +292,7 @@ fn test_vector_concurrent_insert_and_search() {
             })
         }))
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -303,24 +307,26 @@ fn test_memory_fs_concurrent_writes() {
     let mem = Arc::new(MemoryPlugin::new());
     let num_threads = 4;
     let writes_per_thread = 50;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let mem = Arc::clone(&mem);
             thread::spawn(move || {
                 for i in 0..writes_per_thread {
                     let path = format!("/thread_{}/file_{}", thread_id, i);
-                    mem.mkdir(&format!("/thread_{}", thread_id), 0o755).expect("Mkdir failed");
-                    mem.write(&path, b"test data", 0, WriteFlag::CREATE).expect("Write failed");
+                    mem.mkdir(&format!("/thread_{}", thread_id), 0o755)
+                        .expect("Mkdir failed");
+                    mem.write(&path, b"test data", 0, WriteFlag::CREATE)
+                        .expect("Write failed");
                 }
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
-    
+
     // Verify files exist
     for thread_id in 0..num_threads {
         for i in 0..writes_per_thread {
@@ -333,16 +339,17 @@ fn test_memory_fs_concurrent_writes() {
 #[test]
 fn test_memory_fs_concurrent_reads() {
     let mem = Arc::new(MemoryPlugin::new());
-    
+
     // Pre-populate
     for i in 0..100 {
         let path = format!("/file_{}", i);
-        mem.write(&path, b"data", 0, WriteFlag::CREATE).expect("Write failed");
+        mem.write(&path, b"data", 0, WriteFlag::CREATE)
+            .expect("Write failed");
     }
-    
+
     let num_threads = 8;
     let reads_per_thread = 100;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|_| {
             let mem = Arc::clone(&mem);
@@ -355,7 +362,7 @@ fn test_memory_fs_concurrent_reads() {
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -364,17 +371,18 @@ fn test_memory_fs_concurrent_reads() {
 #[test]
 fn test_memory_fs_concurrent_mixed_operations() {
     let mem = Arc::new(MemoryPlugin::new());
-    
+
     // Create initial structure
     mem.mkdir("/shared", 0o755).expect("Mkdir failed");
     for i in 0..50 {
         let path = format!("/shared/file_{}", i);
-        mem.write(&path, b"initial", 0, WriteFlag::CREATE).expect("Write failed");
+        mem.write(&path, b"initial", 0, WriteFlag::CREATE)
+            .expect("Write failed");
     }
-    
+
     let num_readers = 4;
     let num_writers = 2;
-    
+
     let handles: Vec<_> = (0..num_readers)
         .map(|_| {
             let mem = Arc::clone(&mem);
@@ -392,12 +400,13 @@ fn test_memory_fs_concurrent_mixed_operations() {
             thread::spawn(move || {
                 for i in 0..25 {
                     let path = format!("/shared/new_{}_{}", thread_id, i);
-                    mem.write(&path, b"new data", 0, WriteFlag::CREATE).expect("Write failed");
+                    mem.write(&path, b"new data", 0, WriteFlag::CREATE)
+                        .expect("Write failed");
                 }
             })
         }))
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -412,7 +421,7 @@ fn test_kv_stress_high_concurrency() {
     let (store, _temp_dir) = create_temp_kv_store();
     let num_threads = 16;
     let ops_per_thread = 100;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let store = Arc::clone(&store);
@@ -420,14 +429,16 @@ fn test_kv_stress_high_concurrency() {
                 for i in 0..ops_per_thread {
                     let key = format!("stress_key_{}_{}", thread_id, i);
                     // Write
-                    store.put(key.as_bytes(), b"stress_value").expect("Put failed");
+                    store
+                        .put(key.as_bytes(), b"stress_value")
+                        .expect("Put failed");
                     // Read back
                     let _ = store.get(key.as_bytes());
                 }
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
@@ -436,13 +447,13 @@ fn test_kv_stress_high_concurrency() {
 #[test]
 fn test_vector_stress_many_threads() {
     let index = create_test_index();
-    
+
     // Train
     let training: Vec<Vec<f32>> = (0..100).map(|i| generate_vector(i, 8)).collect();
     index.train(&training).expect("Train failed");
-    
+
     let num_threads = 16;
-    
+
     let handles: Vec<_> = (0..num_threads)
         .map(|thread_id| {
             let index = Arc::clone(&index);
@@ -452,14 +463,14 @@ fn test_vector_stress_many_threads() {
                     let id = (thread_id * 100 + i) as u64;
                     let vector = generate_vector(id, 8);
                     index.insert(id, &vector, 2).expect("Insert failed");
-                    
+
                     let query = generate_vector(i as u64, 8);
                     let _ = index.search(&query, 5, None);
                 }
             })
         })
         .collect();
-    
+
     for handle in handles {
         handle.join().expect("Thread panicked");
     }

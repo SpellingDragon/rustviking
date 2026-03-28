@@ -26,25 +26,25 @@ pub enum Commands {
         #[command(subcommand)]
         operation: FsOperation,
     },
-    
+
     /// Key-value store operations
     Kv {
         #[command(subcommand)]
         operation: KvOperation,
     },
-    
+
     /// Vector index operations
     Index {
         #[command(subcommand)]
         operation: IndexOperation,
     },
-    
+
     /// Server management
     Server {
         #[command(subcommand)]
         operation: ServerOperation,
     },
-    
+
     /// Benchmark tests
     Bench {
         /// Test type
@@ -196,7 +196,9 @@ mod tests {
     fn test_parse_fs_mkdir() {
         let cli = Cli::parse_from(["rustviking", "fs", "mkdir", "/local/test"]);
         match cli.command {
-            Commands::Fs { operation: FsOperation::Mkdir { path, .. } } => {
+            Commands::Fs {
+                operation: FsOperation::Mkdir { path, .. },
+            } => {
                 assert_eq!(path, "/local/test");
             }
             _ => panic!("Expected Fs Mkdir"),
@@ -207,7 +209,9 @@ mod tests {
     fn test_parse_kv_put() {
         let cli = Cli::parse_from(["rustviking", "kv", "put", "-k", "mykey", "-v", "myval"]);
         match cli.command {
-            Commands::Kv { operation: KvOperation::Put { key, value } } => {
+            Commands::Kv {
+                operation: KvOperation::Put { key, value },
+            } => {
                 assert_eq!(key, "mykey");
                 assert_eq!(value, "myval");
             }
@@ -217,9 +221,19 @@ mod tests {
 
     #[test]
     fn test_parse_index_search() {
-        let cli = Cli::parse_from(["rustviking", "index", "search", "-q", "0.1,0.2,0.3", "-k", "5"]);
+        let cli = Cli::parse_from([
+            "rustviking",
+            "index",
+            "search",
+            "-q",
+            "0.1,0.2,0.3",
+            "-k",
+            "5",
+        ]);
         match cli.command {
-            Commands::Index { operation: IndexOperation::Search { query, k, .. } } => {
+            Commands::Index {
+                operation: IndexOperation::Search { query, k, .. },
+            } => {
                 assert_eq!(query, vec![0.1, 0.2, 0.3]);
                 assert_eq!(k, 5);
             }

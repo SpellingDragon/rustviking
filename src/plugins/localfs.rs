@@ -2,7 +2,7 @@
 //!
 //! Implements FileSystem trait using the local filesystem.
 
-use crate::agfs::{FileSystem, FileInfo, WriteFlag};
+use crate::agfs::{FileInfo, FileSystem, WriteFlag};
 use crate::error::{Result, RustVikingError};
 use std::fs;
 use std::io::{Read, Write};
@@ -91,16 +91,18 @@ impl FileSystem for LocalFSPlugin {
             let entry = entry?;
             let metadata = entry.metadata()?;
             let name = entry.file_name().to_string_lossy().to_string();
-            
+
             entries.push(FileInfo {
                 name,
                 size: metadata.len(),
                 mode: 0o644,
                 is_dir: metadata.is_dir(),
-                created_at: metadata.created()
+                created_at: metadata
+                    .created()
                     .map(Self::system_time_to_i64)
                     .unwrap_or(0),
-                updated_at: metadata.modified()
+                updated_at: metadata
+                    .modified()
                     .map(Self::system_time_to_i64)
                     .unwrap_or(0),
                 metadata: Vec::new(),
@@ -127,26 +129,26 @@ impl FileSystem for LocalFSPlugin {
         if !full_path.exists() {
             return Err(RustVikingError::NotFound(path.into()));
         }
-        
+
         let data = fs::read(&full_path)?;
-        
+
         let start = if offset >= 0 { offset as usize } else { 0 };
         let end = if size == 0 {
             data.len()
         } else {
             std::cmp::min(start + size as usize, data.len())
         };
-        
+
         if start >= data.len() {
             return Ok(Vec::new());
         }
-        
+
         Ok(data[start..end].to_vec())
     }
 
     fn write(&self, path: &str, data: &[u8], _offset: i64, flags: WriteFlag) -> Result<u64> {
         let full_path = self.resolve_path(path);
-        
+
         if let Some(parent) = full_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -160,7 +162,7 @@ impl FileSystem for LocalFSPlugin {
         } else {
             fs::write(&full_path, data)?;
         }
-        
+
         Ok(data.len() as u64)
     }
 
@@ -178,21 +180,24 @@ impl FileSystem for LocalFSPlugin {
         if !full_path.exists() {
             return Err(RustVikingError::NotFound(path.into()));
         }
-        
+
         let metadata = fs::metadata(&full_path)?;
-        let name = full_path.file_name()
+        let name = full_path
+            .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        
+
         Ok(FileInfo {
             name,
             size: metadata.len(),
             mode: 0o644,
             is_dir: metadata.is_dir(),
-            created_at: metadata.created()
+            created_at: metadata
+                .created()
                 .map(Self::system_time_to_i64)
                 .unwrap_or(0),
-            updated_at: metadata.modified()
+            updated_at: metadata
+                .modified()
                 .map(Self::system_time_to_i64)
                 .unwrap_or(0),
             metadata: Vec::new(),
@@ -217,7 +222,7 @@ impl FileSystem for LocalFSPlugin {
         if let Some(parent) = full_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        
+
         let file = fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -249,7 +254,9 @@ mod tests {
     #[test]
     fn test_write_and_read() {
         let (plugin, _dir) = create_test_plugin();
-        plugin.write("/hello.txt", b"Hello!", 0, WriteFlag::CREATE).unwrap();
+        plugin
+            .write("/hello.txt", b"Hello!", 0, WriteFlag::CREATE)
+            .unwrap();
         let data = plugin.read("/hello.txt", 0, 0).unwrap();
         assert_eq!(data, b"Hello!");
     }
@@ -258,7 +265,9 @@ mod tests {
     fn test_mkdir_and_readdir() {
         let (plugin, _dir) = create_test_plugin();
         plugin.mkdir("/mydir", 0o755).unwrap();
-        plugin.write("/mydir/file.txt", b"content", 0, WriteFlag::CREATE).unwrap();
+        plugin
+            .write("/mydir/file.txt", b"content", 0, WriteFlag::CREATE)
+            .unwrap();
         let entries = plugin.read_dir("/mydir").unwrap();
         assert_eq!(entries.len(), 1);
     }
@@ -266,7 +275,9 @@ mod tests {
     #[test]
     fn test_remove() {
         let (plugin, _dir) = create_test_plugin();
-        plugin.write("/todelete.txt", b"data", 0, WriteFlag::CREATE).unwrap();
+        plugin
+            .write("/todelete.txt", b"data", 0, WriteFlag::CREATE)
+            .unwrap();
         assert!(plugin.exists("/todelete.txt"));
         plugin.remove("/todelete.txt").unwrap();
         assert!(!plugin.exists("/todelete.txt"));
@@ -275,7 +286,9 @@ mod tests {
     #[test]
     fn test_stat() {
         let (plugin, _dir) = create_test_plugin();
-        plugin.write("/info.txt", b"12345", 0, WriteFlag::CREATE).unwrap();
+        plugin
+            .write("/info.txt", b"12345", 0, WriteFlag::CREATE)
+            .unwrap();
         let info = plugin.stat("/info.txt").unwrap();
         assert_eq!(info.size, 5);
         assert!(!info.is_dir);

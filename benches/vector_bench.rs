@@ -35,13 +35,13 @@ fn generate_training_data(count: usize, dim: usize) -> Vec<Vec<f32>> {
 
 fn bench_vector_insert(c: &mut Criterion) {
     let index = create_index();
-    
+
     // Train with some data
     let training_data = generate_training_data(100, DIMENSION);
     index.train(&training_data).expect("Train failed");
-    
+
     let mut group = c.benchmark_group("vector_insert");
-    
+
     for count in [100, 500, 1000].iter() {
         group.bench_with_input(BenchmarkId::new("insert", count), count, |b, &count| {
             let mut id_counter = 0u64;
@@ -56,19 +56,19 @@ fn bench_vector_insert(c: &mut Criterion) {
             });
         });
     }
-    
+
     group.finish();
 }
 
 fn bench_vector_insert_batch(c: &mut Criterion) {
     let index = create_index();
-    
+
     // Train with some data
     let training_data = generate_training_data(100, DIMENSION);
     index.train(&training_data).expect("Train failed");
-    
+
     let mut group = c.benchmark_group("vector_insert_batch");
-    
+
     group.bench_function("batch_100_vectors", |b| {
         let mut batch_counter = 0u64;
         b.iter(|| {
@@ -84,24 +84,24 @@ fn bench_vector_insert_batch(c: &mut Criterion) {
             black_box(&index);
         });
     });
-    
+
     group.finish();
 }
 
 fn bench_vector_search(c: &mut Criterion) {
     let index = create_index();
-    
+
     // Train and populate with data
     let training_data = generate_training_data(100, DIMENSION);
     index.train(&training_data).expect("Train failed");
-    
+
     for i in 0..1000 {
         let vector = generate_random_vector(DIMENSION, i);
         index.insert(i, &vector, 2).expect("Insert failed");
     }
-    
+
     let mut group = c.benchmark_group("vector_search");
-    
+
     for k in [1, 10, 50].iter() {
         group.bench_with_input(BenchmarkId::new("k", k), k, |b, &k| {
             let mut query_counter = 0u64;
@@ -113,25 +113,25 @@ fn bench_vector_search(c: &mut Criterion) {
             });
         });
     }
-    
+
     group.finish();
 }
 
 fn bench_vector_search_with_filter(c: &mut Criterion) {
     let index = create_index();
-    
+
     // Train and populate with data at different levels
     let training_data = generate_training_data(100, DIMENSION);
     index.train(&training_data).expect("Train failed");
-    
+
     for i in 0..1000 {
         let vector = generate_random_vector(DIMENSION, i);
         let level = (i % 3) as u8; // Levels 0, 1, 2
         index.insert(i, &vector, level).expect("Insert failed");
     }
-    
+
     let mut group = c.benchmark_group("vector_search_with_filter");
-    
+
     group.bench_function("search_level_filter", |b| {
         let mut query_counter = 0u64;
         b.iter(|| {
@@ -141,24 +141,24 @@ fn bench_vector_search_with_filter(c: &mut Criterion) {
             black_box(results);
         });
     });
-    
+
     group.finish();
 }
 
 fn bench_vector_get(c: &mut Criterion) {
     let index = create_index();
-    
+
     // Train and populate with data
     let training_data = generate_training_data(100, DIMENSION);
     index.train(&training_data).expect("Train failed");
-    
+
     for i in 0..1000 {
         let vector = generate_random_vector(DIMENSION, i);
         index.insert(i, &vector, 2).expect("Insert failed");
     }
-    
+
     let mut group = c.benchmark_group("vector_get");
-    
+
     group.bench_function("get_by_id", |b| {
         let mut id_counter = 0u64;
         b.iter(|| {
@@ -167,7 +167,7 @@ fn bench_vector_get(c: &mut Criterion) {
             black_box(result);
         });
     });
-    
+
     group.finish();
 }
 

@@ -1,6 +1,6 @@
 //! Storage configuration
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Storage configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,8 +20,12 @@ pub struct StorageConfig {
     pub block_cache_size: Option<usize>,
 }
 
-fn default_true() -> bool { true }
-fn default_max_open_files() -> i32 { 10000 }
+fn default_true() -> bool {
+    true
+}
+fn default_max_open_files() -> i32 {
+    10000
+}
 
 impl Default for StorageConfig {
     fn default() -> Self {

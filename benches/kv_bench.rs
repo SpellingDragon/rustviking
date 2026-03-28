@@ -3,8 +3,8 @@
 //! Benchmarks for RocksKvStore operations.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rustviking::storage::{KvStore, RocksKvStore};
 use rustviking::storage::config::StorageConfig;
+use rustviking::storage::{KvStore, RocksKvStore};
 use tempfile::TempDir;
 
 fn create_kv_store() -> (RocksKvStore, TempDir) {
@@ -22,10 +22,10 @@ fn create_kv_store() -> (RocksKvStore, TempDir) {
 
 fn bench_kv_put(c: &mut Criterion) {
     let (store, _temp_dir) = create_kv_store();
-    
+
     let mut group = c.benchmark_group("kv_put");
     group.throughput(Throughput::Bytes(100));
-    
+
     for size in [100, 1000, 10000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             let mut counter = 0u64;
@@ -43,17 +43,17 @@ fn bench_kv_put(c: &mut Criterion) {
 
 fn bench_kv_get(c: &mut Criterion) {
     let (store, _temp_dir) = create_kv_store();
-    
+
     // Pre-populate with data
     for i in 0..10000 {
         let key = format!("key_{}", i);
         let value = vec![i as u8; 100];
         store.put(key.as_bytes(), &value).expect("Put failed");
     }
-    
+
     let mut group = c.benchmark_group("kv_get");
     group.throughput(Throughput::Bytes(100));
-    
+
     for size in [100, 1000, 10000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             let mut counter = 0u64;
@@ -70,7 +70,7 @@ fn bench_kv_get(c: &mut Criterion) {
 
 fn bench_kv_scan_prefix(c: &mut Criterion) {
     let (store, _temp_dir) = create_kv_store();
-    
+
     // Pre-populate with data
     for i in 0..5000 {
         let prefix = if i < 2500 { "prefix_a" } else { "prefix_b" };
@@ -78,25 +78,25 @@ fn bench_kv_scan_prefix(c: &mut Criterion) {
         let value = vec![i as u8; 50];
         store.put(key.as_bytes(), &value).expect("Put failed");
     }
-    
+
     let mut group = c.benchmark_group("kv_scan_prefix");
-    
+
     group.bench_function("scan_2500_entries", |b| {
         b.iter(|| {
             let results = store.scan_prefix(b"prefix_a").expect("Scan failed");
             black_box(results);
         });
     });
-    
+
     group.finish();
 }
 
 fn bench_kv_batch(c: &mut Criterion) {
     let (store, _temp_dir) = create_kv_store();
-    
+
     let mut group = c.benchmark_group("kv_batch");
     group.throughput(Throughput::Bytes(1000));
-    
+
     group.bench_function("batch_100_puts", |b| {
         b.iter(|| {
             let mut batch = store.batch().expect("Batch failed");
@@ -109,7 +109,7 @@ fn bench_kv_batch(c: &mut Criterion) {
             black_box(&store);
         });
     });
-    
+
     group.finish();
 }
 

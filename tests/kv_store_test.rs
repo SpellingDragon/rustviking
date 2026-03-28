@@ -58,7 +58,7 @@ fn test_scan_prefix() {
     store.put(b"user:1:email", b"alice@test.com").unwrap();
     store.put(b"user:2:name", b"Bob").unwrap();
     store.put(b"other:key", b"value").unwrap();
-    
+
     let results = store.scan_prefix(b"user:1:").unwrap();
     // Should find user:1:name and user:1:email
     assert!(results.len() >= 2);
@@ -75,7 +75,7 @@ fn test_range_query() {
     store.put(b"b", b"2").unwrap();
     store.put(b"c", b"3").unwrap();
     store.put(b"d", b"4").unwrap();
-    
+
     let results = store.range(b"b", b"d").unwrap();
     assert_eq!(results.len(), 2); // b, c
 }
@@ -88,7 +88,7 @@ fn test_batch_write() {
     batch.put(b"batch:2".to_vec(), b"v2".to_vec());
     batch.put(b"batch:3".to_vec(), b"v3".to_vec());
     batch.commit().unwrap();
-    
+
     assert_eq!(store.get(b"batch:1").unwrap(), Some(b"v1".to_vec()));
     assert_eq!(store.get(b"batch:2").unwrap(), Some(b"v2".to_vec()));
     assert_eq!(store.get(b"batch:3").unwrap(), Some(b"v3".to_vec()));

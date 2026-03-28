@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License">
   </a>
   <a href="https://www.rust-lang.org">
-    <img src="https://img.shields.io/badge/rust-1.75+-orange.svg?style=flat-square" alt="Rust Version">
+    <img src="https://img.shields.io/badge/rust-1.82+-orange.svg?style=flat-square" alt="Rust Version">
   </a>
 </p>
 
@@ -33,7 +33,7 @@
 
 ### 环境要求
 
-- **Rust**: 1.75 或更高版本
+- **Rust**: 1.82 或更高版本
 - **操作系统**: macOS 10.15+ / Linux (Ubuntu 20.04+) / Windows (WSL2)
 - **内存**: 最少 4GB RAM，推荐 8GB+
 

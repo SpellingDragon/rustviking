@@ -2,8 +2,8 @@
 //!
 //! Plugin-based filesystem with Radix Tree routing.
 
-use crate::error::{Result, RustVikingError};
 use crate::agfs::FileSystem;
+use crate::error::{Result, RustVikingError};
 use radix_trie::{Trie, TrieCommon};
 use std::sync::{Arc, RwLock};
 
@@ -28,23 +28,30 @@ impl MountableFS {
 
     /// Mount a plugin to a path
     pub fn mount(&self, path: &str, plugin: Arc<dyn FileSystem>, priority: u32) -> Result<()> {
-        let mut tree = self.mount_tree.write()
+        let mut tree = self
+            .mount_tree
+            .write()
             .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
-        
-        tree.insert(path.to_string(), MountPoint {
-            path: path.to_string(),
-            plugin,
-            priority,
-        });
-        
+
+        tree.insert(
+            path.to_string(),
+            MountPoint {
+                path: path.to_string(),
+                plugin,
+                priority,
+            },
+        );
+
         Ok(())
     }
 
     /// Unmount a path
     pub fn unmount(&self, path: &str) -> Result<()> {
-        let mut tree = self.mount_tree.write()
+        let mut tree = self
+            .mount_tree
+            .write()
             .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
-        
+
         tree.remove(path);
         Ok(())
     }
@@ -52,18 +59,18 @@ impl MountableFS {
     /// Route lookup - longest prefix match
     pub fn route(&self, path: &str) -> Option<Arc<dyn FileSystem>> {
         let tree = self.mount_tree.read().ok()?;
-        
+
         // Find the longest matching prefix
         let mut best_key_len: usize = 0;
         let mut best_plugin: Option<Arc<dyn FileSystem>> = None;
-        
+
         for (key, value) in tree.iter() {
             if path.starts_with(key.as_str()) && key.len() > best_key_len {
                 best_key_len = key.len();
                 best_plugin = Some(Arc::clone(&value.plugin));
             }
         }
-        
+
         best_plugin
     }
 
@@ -72,9 +79,10 @@ impl MountableFS {
     where
         F: FnOnce(&dyn FileSystem) -> Result<R>,
     {
-        let fs = self.route(path)
+        let fs = self
+            .route(path)
             .ok_or_else(|| RustVikingError::NotFound(path.into()))?;
-        
+
         op(fs.as_ref())
     }
 }

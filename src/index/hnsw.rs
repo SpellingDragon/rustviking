@@ -101,11 +101,10 @@ impl VectorIndex for HnswIndex {
             .write()
             .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
 
-        let entry = self
+        let entry = *self
             .entry_point
             .read()
-            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?
-            .clone();
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
 
         if entry.is_none() {
             // First node
@@ -155,20 +154,20 @@ impl VectorIndex for HnswIndex {
         let mut neighbor_trim_data: Vec<(u64, Vec<(u64, f32)>)> = Vec::new();
         for &nid in &neighbor_ids {
             if let Some(neighbor_node) = nodes.get(&nid) {
-                if !neighbor_node.neighbors.is_empty() {
-                    if neighbor_node.neighbors[0].len() + 1 > max_connections * 2 {
-                        // Pre-compute distances for trimming
-                        let nv = &neighbor_node.vector;
-                        let scored: Vec<(u64, f32)> = neighbor_node.neighbors[0]
-                            .iter()
-                            .filter_map(|&cid| {
-                                nodes
-                                    .get(&cid)
-                                    .map(|cn| (cid, self.compute_distance(nv, &cn.vector)))
-                            })
-                            .collect();
-                        neighbor_trim_data.push((nid, scored));
-                    }
+                if !neighbor_node.neighbors.is_empty()
+                    && neighbor_node.neighbors[0].len() + 1 > max_connections * 2
+                {
+                    // Pre-compute distances for trimming
+                    let nv = &neighbor_node.vector;
+                    let scored: Vec<(u64, f32)> = neighbor_node.neighbors[0]
+                        .iter()
+                        .filter_map(|&cid| {
+                            nodes
+                                .get(&cid)
+                                .map(|cn| (cid, self.compute_distance(nv, &cn.vector)))
+                        })
+                        .collect();
+                    neighbor_trim_data.push((nid, scored));
                 }
             }
         }
@@ -176,27 +175,22 @@ impl VectorIndex for HnswIndex {
         // Update neighbors' lists
         for &nid in &neighbor_ids {
             if let Some(neighbor_node) = nodes.get_mut(&nid) {
-                if !neighbor_node.neighbors.is_empty() {
-                    if !neighbor_node.neighbors[0].contains(&id) {
-                        neighbor_node.neighbors[0].push(id);
-                        // Trim to max connections
-                        if neighbor_node.neighbors[0].len() > max_connections * 2 {
-                            // Find pre-computed distances
-                            if let Some((_, mut scored)) = neighbor_trim_data
-                                .iter()
-                                .find(|(n, _)| *n == nid)
-                                .cloned()
-                            {
-                                // Add the new node
-                                let nv = &neighbor_node.vector;
-                                scored.push((id, self.compute_distance(nv, &new_vector)));
-                                scored.sort_by(|a, b| {
-                                    a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal)
-                                });
-                                scored.truncate(max_connections * 2);
-                                neighbor_node.neighbors[0] =
-                                    scored.into_iter().map(|(nid, _)| nid).collect();
-                            }
+                if !neighbor_node.neighbors.is_empty() && !neighbor_node.neighbors[0].contains(&id)
+                {
+                    neighbor_node.neighbors[0].push(id);
+                    // Trim to max connections
+                    if neighbor_node.neighbors[0].len() > max_connections * 2 {
+                        // Find pre-computed distances
+                        if let Some((_, mut scored)) =
+                            neighbor_trim_data.iter().find(|(n, _)| *n == nid).cloned()
+                        {
+                            // Add the new node
+                            let nv = &neighbor_node.vector;
+                            scored.push((id, self.compute_distance(nv, &new_vector)));
+                            scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+                            scored.truncate(max_connections * 2);
+                            neighbor_node.neighbors[0] =
+                                scored.into_iter().map(|(nid, _)| nid).collect();
                         }
                     }
                 }
@@ -257,7 +251,7 @@ impl VectorIndex for HnswIndex {
         // Compute distances to all nodes (with level filter)
         let mut candidates: Vec<(u64, f32, u8)> = nodes
             .values()
-            .filter(|n| level_filter.map_or(true, |lf| n.level == lf))
+            .filter(|n| level_filter.is_none_or(|lf| n.level == lf))
             .map(|n| {
                 let dist = self.compute_distance(query, &n.vector);
                 (n.id, dist, n.level)
@@ -297,11 +291,10 @@ impl VectorIndex for HnswIndex {
 
         // Update entry point if needed
         drop(nodes);
-        let ep = self
+        let ep = *self
             .entry_point
             .read()
-            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?
-            .clone();
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
         if ep == Some(id) {
             let nodes = self
                 .nodes
@@ -328,10 +321,7 @@ impl VectorIndex for HnswIndex {
     }
 
     fn count(&self) -> u64 {
-        self.nodes
-            .read()
-            .map(|n| n.len() as u64)
-            .unwrap_or(0)
+        self.nodes.read().map(|n| n.len() as u64).unwrap_or(0)
     }
 
     fn dimension(&self) -> usize {

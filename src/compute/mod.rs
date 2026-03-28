@@ -1,7 +1,7 @@
 //! Compute layer - distance calculations and SIMD optimization
 
 pub mod distance;
-pub mod simd;
 pub mod normalize;
+pub mod simd;
 
 pub use distance::DistanceComputer;

@@ -2,5 +2,5 @@
 
 pub mod commands;
 pub mod fs_commands;
-pub mod store_commands;
 pub mod index_commands;
+pub mod store_commands;

@@ -1,10 +1,10 @@
 //! RocksDB KV Store Implementation
 
-use rocksdb::{DB, Options, WriteBatch, WriteOptions};
+use rocksdb::{Options, WriteBatch, WriteOptions, DB};
 use std::sync::Arc;
 
+use super::{BatchWriter, KvStore};
 use crate::error::{Result, RustVikingError};
-use super::{KvStore, BatchWriter};
 use crate::storage::config::StorageConfig;
 
 /// RocksDB-based KV store
@@ -20,8 +20,8 @@ impl RocksKvStore {
         opts.set_use_fsync(config.use_fsync);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
 
-        let db = DB::open(&opts, &config.path)
-            .map_err(|e| RustVikingError::Storage(e.to_string()))?;
+        let db =
+            DB::open(&opts, &config.path).map_err(|e| RustVikingError::Storage(e.to_string()))?;
 
         Ok(Self { db: Arc::new(db) })
     }
@@ -29,18 +29,21 @@ impl RocksKvStore {
 
 impl KvStore for RocksKvStore {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        self.db.get(key)
+        self.db
+            .get(key)
             .map_err(|e| RustVikingError::Storage(e.to_string()))
             .map(|opt| opt.map(|v| v.to_vec()))
     }
 
     fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        self.db.put(key, value)
+        self.db
+            .put(key, value)
             .map_err(|e| RustVikingError::Storage(e.to_string()))
     }
 
     fn delete(&self, key: &[u8]) -> Result<()> {
-        self.db.delete(key)
+        self.db
+            .delete(key)
             .map_err(|e| RustVikingError::Storage(e.to_string()))
     }
 
@@ -61,9 +64,10 @@ impl KvStore for RocksKvStore {
 
     fn range(&self, start: &[u8], end: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let mut results = Vec::new();
-        let iter = self.db.iterator(
-            rocksdb::IteratorMode::From(start, rocksdb::Direction::Forward)
-        );
+        let iter = self.db.iterator(rocksdb::IteratorMode::From(
+            start,
+            rocksdb::Direction::Forward,
+        ));
 
         for item in iter {
             let (k, v) = item.map_err(|e| RustVikingError::Storage(e.to_string()))?;
@@ -104,8 +108,9 @@ impl BatchWriter for RocksBatchWriter {
     fn commit(self: Box<Self>) -> Result<()> {
         let mut opts = WriteOptions::default();
         opts.set_sync(true);
-        
-        self.db.write_opt(self.batch, &opts)
+
+        self.db
+            .write_opt(self.batch, &opts)
             .map_err(|e| RustVikingError::Storage(e.to_string()))
     }
 }

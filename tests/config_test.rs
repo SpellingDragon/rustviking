@@ -2,10 +2,10 @@
 //!
 //! Tests for configuration loading and validation.
 
-use tempfile::TempDir;
-use std::io::Write as IoWrite;
 use rustviking::config::Config;
 use rustviking::storage::config::StorageConfig;
+use std::io::Write as IoWrite;
+use tempfile::TempDir;
 
 // ============================================================================
 // Config Loading Tests
@@ -15,7 +15,7 @@ use rustviking::storage::config::StorageConfig;
 fn test_config_load_valid() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("test_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test_data"
@@ -41,29 +41,31 @@ output = "stderr"
 default_scope = "user"
 default_account = "test_account"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     assert_eq!(config.storage.path, "/tmp/test_data");
     assert_eq!(config.storage.max_open_files, 5000);
     assert!(config.vector.is_some());
-    
+
     let vector = config.vector.unwrap();
     assert_eq!(vector.dimension, 512);
     assert_eq!(vector.index_type, "ivf_pq");
     assert!(vector.ivf_pq.is_some());
-    
+
     let ivf_pq = vector.ivf_pq.unwrap();
     assert_eq!(ivf_pq.num_partitions, 128);
     assert_eq!(ivf_pq.metric, "l2");
-    
+
     assert!(config.logging.is_some());
     let logging = config.logging.unwrap();
     assert_eq!(logging.level, "debug");
-    
+
     assert!(config.agfs.is_some());
     let agfs = config.agfs.unwrap();
     assert_eq!(agfs.default_scope, "user");
@@ -73,17 +75,19 @@ default_account = "test_account"
 fn test_config_load_minimal() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("minimal_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/minimal"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     assert_eq!(config.storage.path, "/tmp/minimal");
     // Defaults should be applied
     assert!(config.storage.create_if_missing);
@@ -101,7 +105,7 @@ fn test_config_load_nonexistent_file() {
 #[test]
 fn test_config_load_or_default_nonexistent() {
     let config = Config::load_or_default("/nonexistent/path/config.toml");
-    
+
     // Should return defaults
     assert!(config.storage.path.contains("rustviking"));
     assert!(config.vector.is_none());
@@ -110,7 +114,7 @@ fn test_config_load_or_default_nonexistent() {
 #[test]
 fn test_config_default() {
     let config = Config::default();
-    
+
     assert!(config.storage.path.contains("rustviking"));
     assert!(config.storage.create_if_missing);
     assert!(config.vector.is_none());
@@ -126,16 +130,17 @@ fn test_config_default() {
 fn test_config_invalid_toml_syntax() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("invalid_config.toml");
-    
+
     let config_content = r#"
 [storage
 path = "/tmp/test"
 missing closing bracket
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
     let result = Config::load(config_path.to_string_lossy().to_string().as_str());
     assert!(result.is_err());
 }
@@ -144,16 +149,17 @@ missing closing bracket
 fn test_config_invalid_field_type() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("wrong_type_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
 max_open_files = "not_a_number"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
     let result = Config::load(config_path.to_string_lossy().to_string().as_str());
     assert!(result.is_err());
 }
@@ -165,7 +171,7 @@ max_open_files = "not_a_number"
 #[test]
 fn test_storage_config_default() {
     let config = StorageConfig::default();
-    
+
     assert!(config.path.contains("rustviking"));
     assert!(config.create_if_missing);
     assert_eq!(config.max_open_files, 10000);
@@ -182,7 +188,7 @@ fn test_storage_config_custom() {
         use_fsync: true,
         block_cache_size: Some(1024 * 1024 * 100), // 100MB
     };
-    
+
     assert_eq!(config.path, "/custom/path");
     assert!(!config.create_if_missing);
     assert_eq!(config.max_open_files, 2000);
@@ -198,7 +204,7 @@ fn test_storage_config_custom() {
 fn test_vector_config_with_all_options() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("vector_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
@@ -213,16 +219,18 @@ num_sub_vectors = 32
 pq_bits = 8
 metric = "cosine"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     let vector = config.vector.unwrap();
     assert_eq!(vector.dimension, 1536);
     assert_eq!(vector.index_type, "hnsw");
-    
+
     let ivf_pq = vector.ivf_pq.unwrap();
     assert_eq!(ivf_pq.num_partitions, 512);
     assert_eq!(ivf_pq.num_sub_vectors, 32);
@@ -233,7 +241,7 @@ metric = "cosine"
 fn test_vector_config_minimal() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("minimal_vector_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
@@ -241,12 +249,14 @@ path = "/tmp/test"
 [vector]
 dimension = 256
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     let vector = config.vector.unwrap();
     assert_eq!(vector.dimension, 256);
     // Defaults
@@ -262,7 +272,7 @@ dimension = 256
 fn test_logging_config() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("logging_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
@@ -272,12 +282,14 @@ level = "trace"
 format = "json"
 output = "/var/log/rustviking.log"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     let logging = config.logging.unwrap();
     assert_eq!(logging.level, "trace");
     assert_eq!(logging.format, "json");
@@ -292,7 +304,7 @@ output = "/var/log/rustviking.log"
 fn test_agfs_config() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("agfs_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
@@ -301,12 +313,14 @@ path = "/tmp/test"
 default_scope = "agent"
 default_account = "production"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     let agfs = config.agfs.unwrap();
     assert_eq!(agfs.default_scope, "agent");
     assert_eq!(agfs.default_account, "production");
@@ -320,15 +334,13 @@ default_account = "production"
 fn test_config_empty_file() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("empty_config.toml");
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
     file.write_all(b"").expect("Failed to write config");
-    
+
     let result = Config::load(config_path.to_string_lossy().to_string().as_str());
-    // Empty file should fail because storage is required (or use defaults?)
-    // Let's check behavior
-    if result.is_ok() {
-        let config = result.unwrap();
+    // Empty file should use defaults
+    if let Ok(config) = result {
         // Should have defaults
         assert!(config.storage.path.contains("rustviking"));
     }
@@ -338,7 +350,7 @@ fn test_config_empty_file() {
 fn test_config_with_comments() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("commented_config.toml");
-    
+
     let config_content = r#"
 # Main configuration file
 [storage]
@@ -349,12 +361,14 @@ path = "/tmp/test"  # Data storage path
 # Using default dimension
 dimension = 768  # Standard embedding size
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     assert_eq!(config.storage.path, "/tmp/test");
     assert!(config.storage.create_if_missing); // Default
     assert_eq!(config.vector.unwrap().dimension, 768);
@@ -364,7 +378,7 @@ dimension = 768  # Standard embedding size
 fn test_config_multiple_sections() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("full_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/data/rustviking"
@@ -392,22 +406,24 @@ output = "stdout"
 default_scope = "resources"
 default_account = "default"
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
-    let config = Config::load(config_path.to_string_lossy().to_string().as_str()).expect("Failed to load config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
     // Verify all sections
     assert_eq!(config.storage.path, "/data/rustviking");
     assert_eq!(config.storage.block_cache_size, Some(268435456));
-    
+
     let vector = config.vector.unwrap();
     assert_eq!(vector.dimension, 1024);
-    
+
     let logging = config.logging.unwrap();
     assert_eq!(logging.level, "info");
-    
+
     let agfs = config.agfs.unwrap();
     assert_eq!(agfs.default_scope, "resources");
 }
@@ -416,7 +432,7 @@ default_account = "default"
 fn test_config_unknown_field() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let config_path = temp_dir.path().join("unknown_field_config.toml");
-    
+
     let config_content = r#"
 [storage]
 path = "/tmp/test"
@@ -426,16 +442,16 @@ unknown_field = "should be ignored"
 dimension = 128
 also_unknown = 42
 "#;
-    
+
     let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
-    file.write_all(config_content.as_bytes()).expect("Failed to write config");
-    
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
     // TOML parser by default denies unknown fields
     let result = Config::load(config_path.to_string_lossy().to_string().as_str());
     // Depending on serde config, this might fail or succeed
     // Let's document the expected behavior
-    if result.is_ok() {
-        let config = result.unwrap();
+    if let Ok(config) = result {
         assert_eq!(config.storage.path, "/tmp/test");
     }
     // Unknown fields are typically ignored by default serde behavior

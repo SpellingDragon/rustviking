@@ -29,7 +29,12 @@ pub trait VectorIndex: Send + Sync {
     fn insert_batch(&self, vectors: &[(u64, Vec<f32>, u8)]) -> Result<()>;
 
     /// Search for nearest neighbors
-    fn search(&self, query: &[f32], k: usize, level_filter: Option<u8>) -> Result<Vec<SearchResult>>;
+    fn search(
+        &self,
+        query: &[f32],
+        k: usize,
+        level_filter: Option<u8>,
+    ) -> Result<Vec<SearchResult>>;
 
     /// Delete a vector by ID
     fn delete(&self, id: u64) -> Result<()>;

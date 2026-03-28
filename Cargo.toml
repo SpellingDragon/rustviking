@@ -3,6 +3,14 @@ name = "rustviking"
 version = "0.1.0"
 edition = "2021"
 description = "RustViking - OpenViking Core in Rust"
+license = "Apache-2.0"
+authors = ["SpellingDragon"]
+repository = "https://github.com/SpellingDragon/rustviking"
+homepage = "https://github.com/SpellingDragon/rustviking"
+documentation = "https://github.com/SpellingDragon/rustviking#readme"
+keywords = ["vector-index", "ai-agent", "memory", "kv-store", "storage"]
+categories = ["database", "storage", "ai"]
+rust-version = "1.82"
 
 [[bin]]
 name = "rustviking"
