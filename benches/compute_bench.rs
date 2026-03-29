@@ -3,6 +3,7 @@
 //! Benchmarks for distance computation, SIMD operations, and embedding generation.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use futures::executor::block_on;
 use rustviking::compute::distance::DistanceComputer;
 use rustviking::compute::simd::{
     batch_dot_products, batch_l2_distances, parallel_batch_dot_products,
@@ -11,7 +12,6 @@ use rustviking::compute::simd::{
 use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::traits::EmbeddingProvider;
 use rustviking::embedding::types::EmbeddingRequest;
-use tokio::runtime::Runtime;
 
 // ============================================================================
 // Helper functions for generating test data
@@ -205,7 +205,6 @@ fn bench_top_k(c: &mut Criterion) {
 
 fn bench_embedding_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("embedding_generation");
-    let rt = Runtime::new().unwrap();
 
     // Benchmark single embed with different text lengths
     for text_len in [10, 100, 1000].iter() {
@@ -221,8 +220,8 @@ fn bench_embedding_generation(c: &mut Criterion) {
             BenchmarkId::new("embed_single", text_len),
             text_len,
             |b, _| {
-                b.to_async(&rt).iter(|| async {
-                    let result = provider.embed(request.clone()).await.unwrap();
+                b.iter(|| {
+                    let result = block_on(provider.embed(request.clone())).unwrap();
                     black_box(result);
                 });
             },
@@ -239,8 +238,8 @@ fn bench_embedding_generation(c: &mut Criterion) {
         };
 
         group.bench_with_input(BenchmarkId::new("embed_dim", dim), dim, |b, _| {
-            b.to_async(&rt).iter(|| async {
-                let result = provider.embed(request.clone()).await.unwrap();
+            b.iter(|| {
+                let result = block_on(provider.embed(request.clone())).unwrap();
                 black_box(result);
             });
         });
@@ -260,15 +259,15 @@ fn bench_embedding_generation(c: &mut Criterion) {
     };
 
     group.bench_function("embed_normalized", |b| {
-        b.to_async(&rt).iter(|| async {
-            let result = provider_norm.embed(request_norm.clone()).await.unwrap();
+        b.iter(|| {
+            let result = block_on(provider_norm.embed(request_norm.clone())).unwrap();
             black_box(result);
         });
     });
 
     group.bench_function("embed_not_normalized", |b| {
-        b.to_async(&rt).iter(|| async {
-            let result = provider_norm.embed(request_no_norm.clone()).await.unwrap();
+        b.iter(|| {
+            let result = block_on(provider_norm.embed(request_no_norm.clone())).unwrap();
             black_box(result);
         });
     });
@@ -278,7 +277,6 @@ fn bench_embedding_generation(c: &mut Criterion) {
 
 fn bench_embedding_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("embedding_batch");
-    let rt = Runtime::new().unwrap();
 
     let provider = MockEmbeddingProvider::new(512);
 
@@ -296,8 +294,8 @@ fn bench_embedding_batch(c: &mut Criterion) {
             BenchmarkId::new("embed_batch", batch_size),
             batch_size,
             |b, _| {
-                b.to_async(&rt).iter(|| async {
-                    let results = provider.embed_batch(requests.clone(), 4).await.unwrap();
+                b.iter(|| {
+                    let results = block_on(provider.embed_batch(requests.clone(), 4)).unwrap();
                     black_box(results);
                 });
             },
@@ -320,8 +318,8 @@ fn bench_embedding_batch(c: &mut Criterion) {
             BenchmarkId::new("embed_batch_texts_per_req", texts_per_req),
             texts_per_req,
             |b, _| {
-                b.to_async(&rt).iter(|| async {
-                    let results = provider.embed_batch(requests.clone(), 4).await.unwrap();
+                b.iter(|| {
+                    let results = block_on(provider.embed_batch(requests.clone(), 4)).unwrap();
                     black_box(results);
                 });
             },
