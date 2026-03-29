@@ -2,12 +2,29 @@
 //!
 //! Wrapper around hnsw_rs library for production-grade HNSW vector search.
 //! This provides true O(log n) approximate nearest neighbor search.
+//!
+//! ## Dependency Evaluation: hnsw_rs
+//!
+//! **Library**: [hnsw_rs](https://github.com/jean-pierreBoth/hnsw_rs) by jean-pierreBoth
+//!
+//! **Evaluation Criteria**:
+//! 1. **Pure Rust**: ✅ Yes - 100% pure Rust implementation, no C/C++ bindings, no CGO required.
+//! 2. **API Suitability**: ✅ Yes - Provides HNSW construction, search, batch insertion, and
+//!    configurable parameters (M, ef_construction, ef_search, max_layer).
+//!    Supports L2, Cosine (via normalization), and DotProduct distance metrics.
+//! 3. **Serialization**: ✅ Yes - Supports serialization via `file_init()` and `dump()` methods
+//!    for persistence. Note: Current implementation uses in-memory maps for flexibility.
+//! 4. **Maturity**: ✅ Yes - 100+ GitHub stars, actively maintained, production-ready.
+//!
+//! **Conclusion**: hnsw_rs meets all project requirements (pure Rust, no CGO) and provides
+//! a well-designed API for HNSW vector indexing. No replacement needed.
 
 use crate::error::{Result, RustVikingError};
 use crate::index::vector::{HnswParams, MetricType, SearchResult, VectorIndex};
 use hnsw_rs::dist::DistL2;
 use hnsw_rs::hnsw::{Hnsw, Neighbour};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::RwLock;
 
 /// Wrapper for HNSW index using hnsw_rs library
@@ -222,6 +239,155 @@ impl VectorIndex for HnswIndex {
 
     fn dimension(&self) -> usize {
         self.dimension
+    }
+}
+
+impl HnswIndex {
+    // ========================================
+    // Persistence support methods
+    // ========================================
+
+    /// Get configuration for persistence
+    pub fn get_persist_config(&self) -> (usize, HnswParams, usize) {
+        let next_id = self.get_next_id_value();
+        (self.dimension, self.params.clone(), next_id)
+    }
+
+    /// Get ID mapping
+    pub fn get_id_map(&self) -> Result<HashMap<u64, usize>> {
+        let map = self
+            .id_map
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        Ok(map.clone())
+    }
+
+    /// Set ID mapping
+    pub fn set_id_map(&self, map: HashMap<u64, usize>) -> Result<()> {
+        let mut m = self
+            .id_map
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *m = map;
+        Ok(())
+    }
+
+    /// Get reverse mapping
+    pub fn get_reverse_map(&self) -> Result<HashMap<usize, u64>> {
+        let map = self
+            .reverse_map
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        Ok(map.clone())
+    }
+
+    /// Set reverse mapping
+    pub fn set_reverse_map(&self, map: HashMap<usize, u64>) -> Result<()> {
+        let mut m = self
+            .reverse_map
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *m = map;
+        Ok(())
+    }
+
+    /// Get levels
+    pub fn get_levels(&self) -> Result<HashMap<u64, u8>> {
+        let levels = self
+            .levels
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        Ok(levels.clone())
+    }
+
+    /// Set levels
+    pub fn set_levels(&self, levels: HashMap<u64, u8>) -> Result<()> {
+        let mut l = self
+            .levels
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *l = levels;
+        Ok(())
+    }
+
+    /// Get vectors
+    pub fn get_vectors(&self) -> Result<HashMap<u64, Vec<f32>>> {
+        let vectors = self
+            .vectors
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        Ok(vectors.clone())
+    }
+
+    /// Set vectors
+    pub fn set_vectors(&self, vectors: HashMap<u64, Vec<f32>>) -> Result<()> {
+        let mut v = self
+            .vectors
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *v = vectors;
+        Ok(())
+    }
+
+    /// Get current next internal ID value (read-only)
+    pub fn get_next_id_value(&self) -> usize {
+        *self.next_id.read().unwrap()
+    }
+
+    /// Set next internal ID
+    pub fn set_next_id(&self, next_id: usize) -> Result<()> {
+        let mut n = self
+            .next_id
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *n = next_id;
+        Ok(())
+    }
+
+    /// Dump the HNSW graph to files (no-op for now, we store vectors separately)
+    ///
+    /// The actual persistence is handled by HnswIndexPersister which stores
+    /// vectors and metadata in RocksDB. On restore, the graph is rebuilt.
+    pub fn dump_graph(&self, _path: &Path, _basename: &str) -> Result<()> {
+        // Graph dump is handled by storing vectors separately
+        // The graph will be rebuilt on restore
+        Ok(())
+    }
+
+    /// Load the HNSW graph from files (creates a new empty graph)
+    ///
+    /// The actual restoration is handled by HnswIndexPersister which 
+    /// rebuilds the graph from stored vectors.
+    pub fn load_graph(
+        params: &HnswParams,
+        dimension: usize,
+        _path: &Path,
+        _basename: &str,
+    ) -> Result<Self> {
+        // Create a new empty index - vectors will be inserted by persister
+        Ok(Self::new(params.clone(), dimension))
+    }
+
+    // ========================================
+    // Save/Load convenience methods
+    // ========================================
+
+    /// Save index to the specified path
+    ///
+    /// # Arguments
+    /// * `path` - Directory path for storage
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let persister = super::hnsw_persist::HnswIndexPersister::new(path)?;
+        persister.persist_index(self)
+    }
+
+    /// Load index from the specified path
+    ///
+    /// # Arguments
+    /// * `path` - Directory path for storage
+    pub fn load(path: &Path) -> Result<Self> {
+        let persister = super::hnsw_persist::HnswIndexPersister::new(path)?;
+        persister.restore_index()
     }
 }
 

@@ -1,9 +1,9 @@
 //! Bitmap index for set operations
 //!
 //! Provides efficient set intersection, union, and difference operations.
-//! Uses croaring Roaring Bitmap for high performance.
+//! Uses roaring Roaring Bitmap (pure Rust implementation) for high performance.
 
-use croaring::Bitmap as RoaringBitmap;
+use roaring::RoaringBitmap;
 
 /// Bitmap for efficient set operations on IDs
 #[derive(Debug, Clone)]
@@ -23,10 +23,10 @@ impl Bitmap {
     pub fn from_ids(ids: &[u64]) -> Self {
         let mut bitmap = RoaringBitmap::new();
         for &id in ids {
-            // croaring expects u32, but we store u64 IDs
+            // roaring expects u32, but we store u64 IDs
             // For IDs that fit in u32, we can use them directly
             if id <= u32::MAX as u64 {
-                bitmap.add(id as u32);
+                bitmap.insert(id as u32);
             }
         }
         Self { bits: bitmap }
@@ -35,7 +35,7 @@ impl Bitmap {
     /// Add an ID
     pub fn add(&mut self, id: u64) {
         if id <= u32::MAX as u64 {
-            self.bits.add(id as u32);
+            self.bits.insert(id as u32);
         }
     }
 
@@ -58,27 +58,27 @@ impl Bitmap {
     /// Set intersection
     pub fn intersection(&self, other: &Bitmap) -> Bitmap {
         Bitmap {
-            bits: self.bits.and(&other.bits),
+            bits: &self.bits & &other.bits,
         }
     }
 
     /// Set union
     pub fn union(&self, other: &Bitmap) -> Bitmap {
         Bitmap {
-            bits: self.bits.or(&other.bits),
+            bits: &self.bits | &other.bits,
         }
     }
 
     /// Set difference (self - other)
     pub fn difference(&self, other: &Bitmap) -> Bitmap {
         Bitmap {
-            bits: self.bits.andnot(&other.bits),
+            bits: &self.bits - &other.bits,
         }
     }
 
     /// Cardinality (number of elements)
     pub fn cardinality(&self) -> usize {
-        self.bits.cardinality() as usize
+        self.bits.len() as usize
     }
 
     /// Check if empty
@@ -88,34 +88,31 @@ impl Bitmap {
 
     /// Get all IDs as a sorted vector
     pub fn to_vec(&self) -> Vec<u64> {
-        self.bits.to_vec().iter().map(|&id| id as u64).collect()
+        self.bits.iter().map(|id| id as u64).collect()
     }
 
     /// Add a range of IDs [start, end)
     pub fn add_range(&mut self, start: u64, end: u64) {
-        // croaring supports range add for u32 range
+        // roaring supports range insert for u32 range
         let s = start.clamp(0, u32::MAX as u64) as u32;
         let e = end.clamp(0, u32::MAX as u64) as u32;
         if s < e {
-            self.bits.add_range(s..e);
+            self.bits.insert_range(s..e);
         }
     }
 
     /// Serialize to bytes
     pub fn serialize(&self) -> Vec<u8> {
-        self.bits.serialize::<croaring::Portable>()
+        let mut buffer = Vec::new();
+        self.bits.serialize_into(&mut buffer).unwrap();
+        buffer
     }
 
     /// Deserialize from bytes
     pub fn deserialize(data: &[u8]) -> Option<Self> {
-        let bitmap = RoaringBitmap::deserialize::<croaring::Portable>(data);
-        if bitmap.is_empty() && !data.is_empty() {
-            // If data is not empty but bitmap is empty, it might be a deserialization failure
-            // croaring returns empty bitmap for invalid data
-            None
-        } else {
-            Some(Self { bits: bitmap })
-        }
+        RoaringBitmap::deserialize_from(data)
+            .ok()
+            .map(|bitmap| Self { bits: bitmap })
     }
 }
 

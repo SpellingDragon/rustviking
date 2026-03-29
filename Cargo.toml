@@ -54,7 +54,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 bytes = "1"
-croaring = "1.0"
+roaring = "0.10"
 
 # 并行计算
 rayon = "1.10"

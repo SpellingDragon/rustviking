@@ -35,6 +35,14 @@ impl WriteFlag {
     }
 }
 
+impl std::ops::BitOr for WriteFlag {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        WriteFlag(self.0 | rhs.0)
+    }
+}
+
 /// FileSystem Trait - POSIX-style interface
 pub trait FileSystem: Send + Sync {
     // File operations

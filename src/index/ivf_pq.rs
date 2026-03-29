@@ -8,10 +8,14 @@
 use crate::compute::DistanceComputer;
 use crate::error::{Result, RustVikingError};
 use crate::index::vector::{IvfParams, MetricType, SearchResult, VectorIndex};
+use std::path::Path;
 use std::sync::RwLock;
 
+/// Type alias for partition data: (id, vector, level)
+pub type PartitionData = (u64, Vec<f32>, u8);
+
 /// Per-partition data
-struct PartitionData {
+struct PartitionDataInternal {
     ids: Vec<u64>,
     vectors: Vec<Vec<f32>>,
     levels: Vec<u8>,
@@ -30,7 +34,7 @@ pub struct IvfIndex {
     params: IvfParams,
     dimension: usize,
     centroids: RwLock<Vec<Vec<f32>>>,
-    partitions: RwLock<Vec<PartitionData>>,
+    partitions: RwLock<Vec<PartitionDataInternal>>,
     computer: DistanceComputer,
     trained: RwLock<bool>,
 }
@@ -44,7 +48,7 @@ impl IvfIndex {
     pub fn new(params: IvfParams, dimension: usize) -> Self {
         let num_partitions = params.num_partitions;
         let partitions = (0..num_partitions)
-            .map(|_| PartitionData {
+            .map(|_| PartitionDataInternal {
                 ids: Vec::new(),
                 vectors: Vec::new(),
                 levels: Vec::new(),
@@ -303,6 +307,99 @@ impl VectorIndex for IvfIndex {
 
     fn dimension(&self) -> usize {
         self.dimension
+    }
+}
+
+impl IvfIndex {
+    // ========================================
+    // Persistence support methods
+    // ========================================
+
+    /// Get index configuration for persistence
+    pub fn get_config(&self) -> (usize, usize, MetricType, bool) {
+        let trained = *self
+            .trained
+            .read()
+            .unwrap_or_else(|_| panic!("lock poisoned"));
+        (
+            self.dimension,
+            self.params.num_partitions,
+            self.params.metric,
+            trained,
+        )
+    }
+
+    /// Get all centroids
+    pub fn get_centroids(&self) -> Result<Vec<Vec<f32>>> {
+        let centroids = self
+            .centroids
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        Ok(centroids.clone())
+    }
+
+    /// Set all centroids
+    pub fn set_centroids(&self, centroids: Vec<Vec<f32>>) -> Result<()> {
+        let mut c = self
+            .centroids
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *c = centroids;
+        Ok(())
+    }
+
+    /// Set trained status
+    pub fn set_trained(&self, trained: bool) -> Result<()> {
+        let mut t = self
+            .trained
+            .write()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+        *t = trained;
+        Ok(())
+    }
+
+    /// Get all partition data
+    /// Returns Vec<Vec<(id, vector, level)>> - one vector per partition
+    pub fn get_partition_data(&self) -> Result<Vec<Vec<PartitionData>>> {
+        let partitions = self
+            .partitions
+            .read()
+            .map_err(|_| RustVikingError::Internal("lock poisoned".into()))?;
+
+        let mut result = Vec::with_capacity(partitions.len());
+        for part in partitions.iter() {
+            let part_data: Vec<PartitionData> = part
+                .ids
+                .iter()
+                .zip(part.vectors.iter())
+                .zip(part.levels.iter())
+                .map(|((&id, vec), &level)| (id, vec.clone(), level))
+                .collect();
+            result.push(part_data);
+        }
+        Ok(result)
+    }
+
+    // ========================================
+    // Save/Load convenience methods
+    // ========================================
+
+    /// Save index to the specified path
+    ///
+    /// # Arguments
+    /// * `path` - Directory path for RocksDB storage
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let persister = super::ivf_persist::IvfIndexPersister::new(path)?;
+        persister.persist_index(self)
+    }
+
+    /// Load index from the specified path
+    ///
+    /// # Arguments
+    /// * `path` - Directory path for RocksDB storage
+    pub fn load(path: &Path) -> Result<Self> {
+        let persister = super::ivf_persist::IvfIndexPersister::new(path)?;
+        persister.restore_index()
     }
 }
 

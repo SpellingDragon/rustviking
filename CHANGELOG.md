@@ -8,7 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- 项目初始化和基础架构搭建
+- VikingFS unified abstraction layer (`src/vikingfs/`)
+- L0/L1 heuristic summary generation system
+- 12 VikingFS top-level CLI commands (read/write/mkdir/rm/mv/ls/stat/abstract/overview/detail/find/commit)
+- IVF index RocksDB persistence (`src/index/ivf_persist.rs`)
+- HNSW index RocksDB persistence (`src/index/hnsw_persist.rs`)
+- AGFS setup module (`src/agfs/setup.rs`)
+- DirectorySummaryAggregator for bottom-up summary aggregation
+- HeuristicSummaryProvider with Markdown-aware extraction
+- VikingFS end-to-end tests (`tests/vikingfs_test.rs`)
+
+### Changed
+- Replaced `croaring` (C binding) with `roaring` (pure Rust) for zero-CGO compliance
+- Expanded `RustVikingError` from 6 to 18 error variants
+- Enhanced `VikingUri` with normalize/parent/join/starts_with methods
+- Extended configuration with `[summary]` section
+- VikingFS::from_config now properly mounts AGFS and supports RocksDB vector store
+
+### Fixed
+- AGFS mount initialization in VikingFS (was creating empty MountableFS)
+- L0 summary file path convention unified to suffix pattern (file.md.abstract.md)
+- Aggregator now correctly skips all summary files using suffix matching
 
 ## [0.1.0] - 2026-03-29
 

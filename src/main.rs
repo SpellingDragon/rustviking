@@ -1,19 +1,17 @@
 //! RustViking CLI Entry Point
 
 use clap::Parser;
-use std::sync::Arc;
 
 use rustviking::agfs::MountableFS;
 use rustviking::cli::commands::*;
-use rustviking::cli::{fs_commands, index_commands, store_commands};
+use rustviking::cli::{fs_commands, index_commands, store_commands, viking_commands};
+use rustviking::vikingfs::VikingFS;
 use rustviking::config::Config;
 use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::openai::OpenAIEmbeddingProvider;
 use rustviking::embedding::types::EmbeddingConfig;
 use rustviking::embedding::EmbeddingProvider;
 use rustviking::index::{IvfIndex, IvfParams, MetricType};
-use rustviking::plugins::localfs::LocalFSPlugin;
-use rustviking::plugins::memory::MemoryPlugin;
 use rustviking::plugins::PluginRegistry;
 use rustviking::storage::RocksKvStore;
 use rustviking::vector_store::memory::MemoryVectorStore;
@@ -110,7 +108,7 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
     match cli.command {
         Commands::Fs { operation } => {
             // Initialize AGFS with plugins
-            let agfs = setup_agfs(&config)?;
+            let agfs = rustviking::agfs::setup_agfs(&config.storage.path)?;
             handle_fs_command(&agfs, operation, &cli.output)
         }
         Commands::Kv { operation } => {
@@ -128,35 +126,57 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
         }
         Commands::Server { operation } => handle_server_command(operation),
         Commands::Bench { test, count } => handle_bench_command(test, count),
+
+        // VikingFS 语义层命令
+        Commands::Read { uri, level } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_read(&vikingfs, &uri, level.as_deref(), &cli.output)
+        }
+        Commands::Write { uri, data, auto_summary } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_write(&vikingfs, &uri, &data, auto_summary, &cli.output)
+        }
+        Commands::Mkdir { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_mkdir(&vikingfs, &uri, &cli.output)
+        }
+        Commands::Rm { uri, recursive } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_rm(&vikingfs, &uri, recursive, &cli.output)
+        }
+        Commands::Mv { from, to } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_mv(&vikingfs, &from, &to, &cli.output)
+        }
+        Commands::Ls { uri, recursive } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_ls(&vikingfs, &uri, recursive, &cli.output)
+        }
+        Commands::Stat { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_stat(&vikingfs, &uri, &cli.output)
+        }
+        Commands::Abstract { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_abstract(&vikingfs, &uri, &cli.output)
+        }
+        Commands::Overview { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_overview(&vikingfs, &uri, &cli.output)
+        }
+        Commands::Detail { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_detail(&vikingfs, &uri, &cli.output)
+        }
+        Commands::Find { query, target, k, level } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_find(&vikingfs, &query, target.as_deref(), k, level.as_deref(), &cli.output)
+        }
+        Commands::Commit { uri } => {
+            let vikingfs = VikingFS::from_config(&config)?;
+            viking_commands::handle_commit(&vikingfs, &uri, &cli.output)
+        }
     }
-}
-
-fn setup_agfs(config: &Config) -> rustviking::error::Result<MountableFS> {
-    let agfs = MountableFS::new();
-
-    // Mount local filesystem
-    let local_path = format!("{}/local", config.storage.path);
-    let local_plugin = LocalFSPlugin::new(&local_path)?;
-    agfs.mount("/local", Arc::new(local_plugin), 100)?;
-
-    // Mount memory filesystem
-    let mem_plugin = MemoryPlugin::new();
-    agfs.mount("/memory", Arc::new(mem_plugin), 50)?;
-
-    // Mount default resource paths
-    let resources_path = format!("{}/resources", config.storage.path);
-    let resources_plugin = LocalFSPlugin::new(&resources_path)?;
-    agfs.mount("/resources", Arc::new(resources_plugin), 100)?;
-
-    let user_path = format!("{}/user", config.storage.path);
-    let user_plugin = LocalFSPlugin::new(&user_path)?;
-    agfs.mount("/user", Arc::new(user_plugin), 100)?;
-
-    let agent_path = format!("{}/agent", config.storage.path);
-    let agent_plugin = LocalFSPlugin::new(&agent_path)?;
-    agfs.mount("/agent", Arc::new(agent_plugin), 100)?;
-
-    Ok(agfs)
 }
 
 fn handle_fs_command(

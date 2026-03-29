@@ -82,6 +82,26 @@ fn default_max_concurrent() -> usize {
     10
 }
 
+fn default_summary_provider() -> String {
+    "noop".to_string()
+}
+
+/// Summary provider configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SummaryConfig {
+    /// Provider type: "noop", "heuristic", "openai"
+    #[serde(default = "default_summary_provider")]
+    pub provider: String,
+}
+
+impl Default for SummaryConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_summary_provider(),
+        }
+    }
+}
+
 /// 向量存储插件配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorStoreConfig {
@@ -239,6 +259,8 @@ pub struct Config {
     pub vector_store: VectorStoreConfig,
     #[serde(default)]
     pub embedding: EmbeddingPluginConfig,
+    #[serde(default)]
+    pub summary: Option<SummaryConfig>,
 }
 
 impl Config {

@@ -278,3 +278,127 @@ fn test_cli_output_format_plain() {
         .assert()
         .success();
 }
+
+// =============================================================================
+// VikingFS Command Tests
+// =============================================================================
+
+#[test]
+fn test_cli_vikingfs_read_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["read", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("读取文件"));
+}
+
+#[test]
+fn test_cli_vikingfs_write_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["write", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("写入文件"));
+}
+
+#[test]
+fn test_cli_vikingfs_mkdir_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["mkdir", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("创建目录"));
+}
+
+#[test]
+fn test_cli_vikingfs_rm_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["rm", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("删除"));
+}
+
+#[test]
+fn test_cli_vikingfs_mv_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["mv", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("移动"));
+}
+
+#[test]
+fn test_cli_vikingfs_ls_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["ls", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("列出"));
+}
+
+#[test]
+fn test_cli_vikingfs_stat_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["stat", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("获取文件信息"));
+}
+
+#[test]
+fn test_cli_vikingfs_abstract_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["abstract", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("L0"));
+}
+
+#[test]
+fn test_cli_vikingfs_overview_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["overview", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("L1"));
+}
+
+#[test]
+fn test_cli_vikingfs_detail_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["detail", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("L2"));
+}
+
+#[test]
+fn test_cli_vikingfs_find_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["find", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("语义搜索"));
+}
+
+#[test]
+fn test_cli_vikingfs_commit_help() {
+    let mut cmd = Command::cargo_bin("rustviking").unwrap();
+
+    cmd.args(["commit", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("提交目录"));
+}

@@ -12,3 +12,4 @@ pub mod index;
 pub mod plugins;
 pub mod storage;
 pub mod vector_store;
+pub mod vikingfs;

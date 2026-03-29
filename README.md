@@ -1,6 +1,6 @@
 # RustViking
 
-> **OpenViking Core in Rust** — 高性能、命令行优先的 AI Agent 记忆基础设施
+> OpenViking Core in Rust — A high-performance, CLI-first AI Agent memory infrastructure.
 
 <p align="center">
   <a href="https://github.com/SpellingDragon/rustviking/actions">
@@ -16,153 +16,285 @@
 
 ---
 
-## 项目状态
+## Project Status
 
-**实验性项目** — 本项目是对 OpenViking 核心概念的 Rust 实现探索，目前处于早期开发阶段。
+**Experimental Project** — This is a Rust implementation exploration of OpenViking core concepts, currently in active development.
 
-### 已实现功能
+### Feature Matrix
 
-| 功能 | 状态 | 说明 |
-|------|------|------|
-| **AGFS 虚拟文件系统** | ✅ 基本完成 | 通过 `viking://` URI 访问的统一文件系统抽象 |
-| **RocksDB KV 存储** | ✅ 生产可用 | 基于 RocksDB 的持久化键值存储 |
-| **HNSW 向量索引** | ✅ 基本完成 | 使用 hnsw_rs 成熟库实现 |
-| **IVF 向量索引** | ⚠️ 基础实现 | 简单的 IVF 聚类索引（不含 PQ） |
-| **分层索引 L0/L1/L2** | ⚠️ 概念实现 | 支持按层级过滤检索 |
-| **OpenAI Embedding** | ✅ 基本完成 | 支持兼容 OpenAI API 的嵌入服务 |
-| **CLI 命令** | ✅ 基本完成 | 文件系统、KV、索引操作命令 |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **AGFS Virtual File System** | ✅ Ready | Unified filesystem abstraction via `viking://` URI |
+| **RocksDB KV Storage** | ✅ Production | Persistent key-value storage with RocksDB |
+| **HNSW Vector Index** | ✅ Persistent | HNSW implementation with RocksDB persistence |
+| **IVF Vector Index** | ✅ Persistent | IVF clustering index with RocksDB persistence |
+| **L0/L1 Summary Layer** | ✅ Heuristic | Automatic abstract/overview generation |
+| **VikingFS Core** | ✅ Ready | Unified abstraction layer for AGFS and Vector Store |
+| **VikingFS CLI** | ✅ 12 Commands | read/write/mkdir/rm/mv/ls/stat/abstract/overview/detail/find/commit |
+| **OpenAI Embedding** | ✅ Ready | Compatible with OpenAI API embedding services |
+| **S3FS Plugin** | ❌ Missing | S3-compatible storage backend |
+| **SQLFS Plugin** | ❌ Missing | SQL database storage backend |
+| **HTTP/gRPC Service** | ❌ Missing | REST API and gRPC interface |
 
-### 与 OpenViking 的差异
+### Differences from OpenViking
 
-OpenViking 是字节跳动开源的生产级 AI Agent 上下文数据库，包含完整的：
-- 意图分析
-- 分层检索与重排序
-- 会话管理与记忆提取
-- 文档解析与 LLM 集成
+[OpenViking](https://github.com/volcengine/OpenViking) is ByteDance's production-grade AI Agent context database, featuring:
+- Intent analysis
+- Hierarchical retrieval and reranking
+- Session management and memory extraction
+- Document parsing and LLM integration
 
-**RustViking 当前仅实现了 OpenViking 的存储层基础组件**，不包含上述高级功能。如需生产级 AI Agent 记忆系统，建议直接使用 [OpenViking](https://github.com/volcengine/OpenViking)。
+**RustViking currently implements only the storage layer foundation** of OpenViking, without the advanced features above. For production-grade AI Agent memory systems, we recommend using [OpenViking](https://github.com/volcengine/OpenViking) directly.
 
 ---
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Requirements
 
-- **Rust**: 1.82 或更高版本
-- **操作系统**: macOS 10.15+ / Linux (Ubuntu 20.04+) / Windows (WSL2)
+- **Rust**: 1.82 or higher
+- **OS**: macOS 10.15+ / Linux (Ubuntu 20.04+) / Windows (WSL2)
 
-### 编译
+### Build
 
 ```bash
-# 克隆仓库
+# Clone repository
 git clone https://github.com/SpellingDragon/rustviking.git
 cd rustviking
 
-# Debug 模式（开发）
+# Debug build (development)
 cargo build
 
-# Release 模式（生产，推荐）
+# Release build (production, recommended)
 cargo build --release
 ```
 
-### 基础使用
+### Basic Usage
 
 ```bash
-# 查看帮助
+# Show help
 ./target/release/rustviking --help
 
-# 文件系统操作
-./rustviking fs mkdir viking://resources/project/docs
-./rustviking fs write viking://resources/doc.md --data "Hello, RustViking!"
-./rustviking fs cat viking://resources/doc.md
+# VikingFS commands (top-level)
+./rustviking mkdir viking://resources/project/docs
+./rustviking write viking://resources/doc.md "Hello, RustViking!"
+./rustviking read viking://resources/doc.md
+./rustviking ls viking://resources/
+./rustviking stat viking://resources/doc.md
 
-# 键值存储操作
+# L0/L1 Summary commands
+./rustviking abstract viking://resources/doc.md    # Generate L0 abstract
+./rustviking overview viking://resources/          # Generate L1 overview
+./rustviking detail viking://resources/doc.md      # Read L2 full content
+./rustviking commit viking://resources/            # Trigger summary aggregation
+
+# Search commands
+./rustviking find "authentication" --k 10          # Semantic search
+./rustviking find --regex "oauth|jwt"              # Regex search
+
+# Legacy commands
 ./rustviking kv put --key "user:1:name" --value "Alice"
 ./rustviking kv get --key "user:1:name"
-
-# 向量索引操作
 ./rustviking index insert --id 1 --vector 0.1,0.2,0.3,0.4 --level 2
 ./rustviking index search --query 0.1,0.2,0.3,0.4 --k 10
 ```
 
 ---
 
-## 架构概览
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph CLI["CLI Commands"]
+    end
+    subgraph VikingFS["VikingFS Core<br/>(Unified Abstraction)"]
+    end
+    subgraph AGFS["AGFS Virtual File System<br/>(Radix Tree Routing + Multi-backend Mount)"]
+    end
+    subgraph Backends["Backend Implementations"]
+        LocalFS["LocalFS<br/>(Local Filesystem)"]
+        MemoryFS["MemoryFS<br/>(In-Memory)"]
+        VectorStore["VectorStore<br/>(RocksDB/Memory)"]
+    end
+    subgraph Storage["Underlying Storage"]
+        RocksDB["Storage Layer (RocksDB)"]
+        VectorIndex["Vector Index (HNSW/IVF)"]
+    end
+    CLI --> VikingFS
+    VikingFS --> AGFS
+    AGFS --> LocalFS
+    AGFS --> MemoryFS
+    AGFS --> VectorStore
+    LocalFS --> RocksDB
+    MemoryFS --> RocksDB
+    VectorStore --> RocksDB
+    VectorStore --> VectorIndex
+```
+
+### Module Structure
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    CLI Commands                      │
-├─────────────────────────────────────────────────────┤
-│                  AGFS 虚拟文件系统                   │
-│         (Radix Tree 路由 + 多后端挂载)               │
-├──────────────┬──────────────┬───────────────────────┤
-│   LocalFS    │  MemoryFS    │      VectorStore      │
-│   (本地)     │   (内存)     │  (RocksDB/Memory)     │
-├──────────────┴──────────────┴───────────────────────┤
-│                 存储层 (RocksDB)                     │
-│              向量索引 (HNSW/IVF)                     │
-└─────────────────────────────────────────────────────┘
+src/
+├── agfs/           # AGFS Virtual File System
+├── vikingfs/       # VikingFS Core (unified abstraction)
+├── index/          # Vector Index (HNSW/IVF with persistence)
+├── storage/        # KV Storage (RocksDB)
+├── vector_store/   # Vector Store abstraction
+├── embedding/      # Embedding Providers
+├── cli/            # CLI Commands
+├── config/         # Configuration
+└── error.rs        # Error Types (18 variants)
 ```
 
 ---
 
-## CLI 命令速查表
+## CLI Commands
 
-### 文件系统命令
+### VikingFS Commands (Top-Level)
 
-| 命令 | 描述 | 示例 |
-|------|------|------|
-| `fs mkdir` | 创建目录 | `rustviking fs mkdir viking://resources/project/docs` |
-| `fs ls` | 列出目录 | `rustviking fs ls viking://resources/project/` |
-| `fs cat` | 读取文件 | `rustviking fs cat viking://resources/doc.md` |
-| `fs write` | 写入文件 | `rustviking fs write viking://resources/doc.md --data "..."` |
-| `fs rm` | 删除文件/目录 | `rustviking fs rm viking://resources/doc.md` |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `read` | Read file content | `rustviking read viking://resources/doc.md` |
+| `write` | Write file | `rustviking write viking://resources/doc.md "content"` |
+| `mkdir` | Create directory | `rustviking mkdir viking://resources/project/docs` |
+| `rm` | Remove file/directory | `rustviking rm viking://resources/doc.md` |
+| `mv` | Move/rename | `rustviking mv viking://old.md viking://new.md` |
+| `ls` | List directory | `rustviking ls viking://resources/` |
+| `stat` | Get file info | `rustviking stat viking://resources/doc.md` |
+| `abstract` | Read/generate L0 abstract | `rustviking abstract viking://resources/doc.md` |
+| `overview` | Read/generate L1 overview | `rustviking overview viking://resources/` |
+| `detail` | Read L2 full content | `rustviking detail viking://resources/doc.md` |
+| `find` | Search content | `rustviking find "query" --k 10` |
+| `commit` | Trigger aggregation | `rustviking commit viking://resources/` |
 
-### 键值存储命令
+### Legacy Commands
 
-| 命令 | 描述 | 示例 |
-|------|------|------|
-| `kv get` | 获取值 | `rustviking kv get --key "user:1:name"` |
-| `kv put` | 设置键值 | `rustviking kv put --key "user:1:name" --value "Alice"` |
-| `kv del` | 删除键 | `rustviking kv del --key "user:1:name"` |
-| `kv scan` | 前缀扫描 | `rustviking kv scan --prefix "user:" --limit 100` |
-
-### 索引命令
-
-| 命令 | 描述 | 示例 |
-|------|------|------|
-| `index insert` | 插入向量 | `rustviking index insert --id 1 --vector 0.1,0.2 --level 2` |
-| `index search` | 向量搜索 | `rustviking index search --query 0.1,0.2 --k 10` |
-| `index delete` | 删除向量 | `rustviking index delete --id 1` |
-| `index info` | 索引信息 | `rustviking index info` |
-
----
-
-## 致谢 OpenViking
-
-RustViking 的诞生，源于对 **[OpenViking](https://github.com/volcengine/OpenViking)** 深深的敬意与热爱。
-
-| 维度 | OpenViking | RustViking |
-|------|-----------|------------|
-| **语言** | Go + Python + C++ | 纯 Rust |
-| **交互方式** | HTTP/gRPC 服务 | **命令行优先** |
-| **定位** | 完整 Agent 平台 | 存储层基础组件 |
-| **成熟度** | 生产级 | 实验性 |
-
-特别感谢 OpenViking 团队的开源贡献！
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kv get` | Get value | `rustviking kv get --key "user:1:name"` |
+| `kv put` | Set key-value | `rustviking kv put --key "user:1:name" --value "Alice"` |
+| `kv del` | Delete key | `rustviking kv del --key "user:1:name"` |
+| `kv scan` | Prefix scan | `rustviking kv scan --prefix "user:" --limit 100` |
+| `index insert` | Insert vector | `rustviking index insert --id 1 --vector 0.1,0.2 --level 2` |
+| `index search` | Vector search | `rustviking index search --query 0.1,0.2 --k 10` |
 
 ---
 
-## 贡献指引
+## Configuration
 
-欢迎所有形式的贡献！请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何：
+Create a `config.toml` file:
 
-- 提交 Issue 和 Feature Request
-- 设置开发环境
-- 提交 Pull Request
+```toml
+[storage]
+path = "./data/rustviking"
+create_if_missing = true
+
+[vector]
+dimension = 768
+index_type = "ivf_pq"
+
+[vector_store]
+plugin = "rocksdb"
+
+[vector_store.rocksdb]
+path = "./data/rustviking/vector_store"
+
+[embedding]
+plugin = "mock"
+
+[summary]
+provider = "heuristic"  # Options: "noop", "heuristic"
+```
+
+See [config.toml.example](config.toml.example) for full configuration options.
+
+---
+
+## As a Rust Library
+
+```rust
+use rustviking::vikingfs::VikingFS;
+use rustviking::config::Config;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Load configuration
+    let config = Config::from_file("config.toml")?;
+    
+    // Initialize VikingFS
+    let vikingfs = VikingFS::from_config(&config).await?;
+    
+    // Write file
+    vikingfs.write("viking://resources/doc.md", "Hello, World!").await?;
+    
+    // Read file
+    let content = vikingfs.read("viking://resources/doc.md").await?;
+    println!("{}", content);
+    
+    // Generate abstract
+    let abstract_text = vikingfs.abstract_("viking://resources/doc.md").await?;
+    
+    // Search
+    let results = vikingfs.find("query", None, None, 10).await?;
+    
+    Ok(())
+}
+```
+
+---
+
+## Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# KV benchmarks
+cargo bench --bench kv_bench
+
+# Vector benchmarks
+cargo bench --bench vector_bench
+
+# AGFS benchmarks
+cargo bench --bench agfs_bench
+```
+
+Performance targets:
+- CLI command latency: < 5ms
+- Vector search latency: < 10ms (P99)
+- Single binary deployment, zero CGO dependencies
+
+---
+
+## Tribute to OpenViking
+
+RustViking was inspired by **[OpenViking](https://github.com/volcengine/OpenViking)**.
+
+| Dimension | OpenViking | RustViking |
+|-----------|-----------|------------|
+| **Language** | Go + Python + C++ | Pure Rust |
+| **Interaction** | HTTP/gRPC Service | **CLI-first** |
+| **Scope** | Full Agent Platform | Storage Layer Foundation |
+| **Maturity** | Production-grade | Experimental |
+
+Special thanks to the OpenViking team for their open-source contribution!
+
+---
+
+## Contributing
+
+All forms of contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Submitting Issues and Feature Requests
+- Setting up development environment
+- Submitting Pull Requests
 
 ---
 
 ## License
 
-RustViking 采用 [Apache-2.0](LICENSE) 许可证开源。
+RustViking is licensed under [Apache-2.0](LICENSE).
+
+---
+
+*For Chinese documentation, see [concept.md](concept.md)*
