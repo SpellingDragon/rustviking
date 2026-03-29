@@ -456,3 +456,229 @@ also_unknown = 42
     }
     // Unknown fields are typically ignored by default serde behavior
 }
+
+// ============================================================================
+// VectorStore Config Tests
+// ============================================================================
+
+#[test]
+fn test_config_default_vector_store() {
+    let config = Config::default();
+
+    // Default vector_store.plugin should be "memory"
+    assert_eq!(config.vector_store.plugin, "memory");
+    assert!(config.vector_store.memory.is_none());
+    assert!(config.vector_store.qdrant.is_none());
+}
+
+#[test]
+fn test_config_with_vector_store() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("vector_store_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[vector_store]
+plugin = "qdrant"
+
+[vector_store.qdrant]
+url = "http://localhost:6333"
+collection = "test_collection"
+timeout_ms = 3000
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.vector_store.plugin, "qdrant");
+    assert!(config.vector_store.qdrant.is_some());
+
+    let qdrant = config.vector_store.qdrant.unwrap();
+    assert_eq!(qdrant.url, "http://localhost:6333");
+    assert_eq!(qdrant.collection, "test_collection");
+    assert_eq!(qdrant.timeout_ms, 3000);
+}
+
+#[test]
+fn test_config_vector_store_memory() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("memory_store_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[vector_store]
+plugin = "memory"
+
+[vector_store.memory]
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.vector_store.plugin, "memory");
+    assert!(config.vector_store.memory.is_some());
+}
+
+// ============================================================================
+// Embedding Config Tests
+// ============================================================================
+
+#[test]
+fn test_config_default_embedding() {
+    let config = Config::default();
+
+    // Default embedding.plugin should be "mock"
+    assert_eq!(config.embedding.plugin, "mock");
+    assert!(config.embedding.mock.is_none());
+    assert!(config.embedding.openai.is_none());
+    assert!(config.embedding.ollama.is_none());
+}
+
+#[test]
+fn test_config_with_embedding() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("embedding_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[embedding]
+plugin = "mock"
+
+[embedding.mock]
+dimension = 768
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.embedding.plugin, "mock");
+    assert!(config.embedding.mock.is_some());
+
+    let mock_config = config.embedding.mock.unwrap();
+    assert_eq!(mock_config.dimension, 768);
+}
+
+#[test]
+fn test_config_embedding_openai() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("openai_embedding_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[embedding]
+plugin = "openai"
+
+[embedding.openai]
+api_base = "https://api.openai.com/v1"
+api_key = "sk-test-key"
+model = "text-embedding-3-large"
+dimension = 3072
+max_concurrent = 5
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.embedding.plugin, "openai");
+    assert!(config.embedding.openai.is_some());
+
+    let openai_config = config.embedding.openai.unwrap();
+    assert_eq!(openai_config.api_base, "https://api.openai.com/v1");
+    assert_eq!(openai_config.api_key, "sk-test-key");
+    assert_eq!(openai_config.model, "text-embedding-3-large");
+    assert_eq!(openai_config.dimension, 3072);
+    assert_eq!(openai_config.max_concurrent, 5);
+}
+
+#[test]
+fn test_config_embedding_ollama() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("ollama_embedding_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[embedding]
+plugin = "ollama"
+
+[embedding.ollama]
+url = "http://localhost:11434"
+model = "nomic-embed-text"
+dimension = 768
+max_concurrent = 3
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.embedding.plugin, "ollama");
+    assert!(config.embedding.ollama.is_some());
+
+    let ollama_config = config.embedding.ollama.unwrap();
+    assert_eq!(ollama_config.url, "http://localhost:11434");
+    assert_eq!(ollama_config.model, "nomic-embed-text");
+    assert_eq!(ollama_config.dimension, 768);
+    assert_eq!(ollama_config.max_concurrent, 3);
+}
+
+#[test]
+fn test_config_both_vector_store_and_embedding() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join("full_plugin_config.toml");
+
+    let config_content = r#"
+[storage]
+path = "/tmp/test"
+
+[vector_store]
+plugin = "memory"
+
+[embedding]
+plugin = "mock"
+
+[embedding.mock]
+dimension = 512
+"#;
+
+    let mut file = std::fs::File::create(&config_path).expect("Failed to create config file");
+    file.write_all(config_content.as_bytes())
+        .expect("Failed to write config");
+
+    let config = Config::load(config_path.to_string_lossy().to_string().as_str())
+        .expect("Failed to load config");
+
+    assert_eq!(config.vector_store.plugin, "memory");
+    assert_eq!(config.embedding.plugin, "mock");
+
+    let mock_config = config.embedding.mock.unwrap();
+    assert_eq!(mock_config.dimension, 512);
+}

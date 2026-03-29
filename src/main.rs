@@ -7,10 +7,17 @@ use rustviking::agfs::MountableFS;
 use rustviking::cli::commands::*;
 use rustviking::cli::{fs_commands, index_commands, store_commands};
 use rustviking::config::Config;
+use rustviking::embedding::mock::MockEmbeddingProvider;
+use rustviking::embedding::openai::OpenAIEmbeddingProvider;
+use rustviking::embedding::types::EmbeddingConfig;
+use rustviking::embedding::EmbeddingProvider;
 use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType};
 use rustviking::plugins::localfs::LocalFSPlugin;
 use rustviking::plugins::memory::MemoryPlugin;
+use rustviking::plugins::PluginRegistry;
 use rustviking::storage::RocksKvStore;
+use rustviking::vector_store::memory::MemoryVectorStore;
+use rustviking::vector_store::rocks::RocksDBVectorStore;
 
 fn main() {
     // Initialize tracing
@@ -39,6 +46,66 @@ fn main() {
 fn run(cli: Cli) -> rustviking::error::Result<()> {
     // Load config
     let config = Config::load_or_default(&cli.config);
+
+    // Initialize plugin registry
+    let mut plugin_registry = PluginRegistry::new();
+
+    // Register VectorStore plugins
+    plugin_registry.register_vector_store("memory", || Box::new(MemoryVectorStore::new()));
+
+    // Register RocksDB VectorStore plugin with configured path
+    let rocksdb_path = config
+        .vector_store
+        .rocksdb
+        .as_ref()
+        .map(|c| c.path.clone())
+        .unwrap_or_else(|| format!("{}/vector_store", config.storage.path));
+    plugin_registry.register_vector_store("rocksdb", move || {
+        match RocksDBVectorStore::with_path(&rocksdb_path) {
+            Ok(store) => Box::new(store) as Box<dyn rustviking::vector_store::VectorStore>,
+            Err(e) => {
+                tracing::error!("Failed to create RocksDBVectorStore: {}", e);
+                // Fallback to memory store on error
+                Box::new(MemoryVectorStore::new()) as Box<dyn rustviking::vector_store::VectorStore>
+            }
+        }
+    });
+
+    // Register EmbeddingProvider plugins
+    plugin_registry
+        .register_embedding_provider("mock", || Box::new(MockEmbeddingProvider::default()));
+
+    // Register OpenAI EmbeddingProvider plugin
+    plugin_registry
+        .register_embedding_provider("openai", || Box::new(OpenAIEmbeddingProvider::new()));
+
+    // Create instances based on config
+    let vector_store = plugin_registry.create_vector_store(&config.vector_store.plugin)?;
+
+    // Create and initialize embedding provider based on config
+    let embedding_provider = if config.embedding.plugin == "openai" {
+        let provider = OpenAIEmbeddingProvider::new();
+        if let Some(openai_config) = &config.embedding.openai {
+            let embedding_config = EmbeddingConfig {
+                api_base: openai_config.api_base.clone(),
+                api_key: Some(openai_config.api_key.clone()),
+                provider: "openai".to_string(),
+                model: openai_config.model.clone(),
+                dimension: openai_config.dimension,
+                max_concurrent: openai_config.max_concurrent,
+            };
+            provider.initialize(embedding_config)?;
+        }
+        Box::new(provider) as Box<dyn rustviking::embedding::EmbeddingProvider>
+    } else {
+        plugin_registry.create_embedding_provider(&config.embedding.plugin)?
+    };
+
+    tracing::info!(
+        "Vector store: {}, Embedding provider: {}",
+        vector_store.name(),
+        embedding_provider.name()
+    );
 
     match cli.command {
         Commands::Fs { operation } => {

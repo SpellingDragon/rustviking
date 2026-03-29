@@ -13,7 +13,7 @@
 |------|-----|
 | 操作系统 | macOS 14.7.2 |
 | CPU | Apple Silicon M2 |
-| Rust 版本 | 1.75+ |
+| Rust 版本 | 1.82+ |
 | 测试模式 | Release (optimized) |
 
 ---

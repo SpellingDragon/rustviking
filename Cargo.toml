@@ -41,6 +41,7 @@ thiserror = "2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
+bincode = "1"
 
 # 日志
 tracing = "0.1"
@@ -51,6 +52,12 @@ uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 bytes = "1"
 croaring = "1.0"
+
+# 并行计算
+rayon = "1.10"
+
+# HTTP 客户端
+reqwest = { version = "0.12", features = ["json", "blocking"] }
 
 [dev-dependencies]
 tempfile = "3"
@@ -73,4 +80,12 @@ harness = false
 
 [[bench]]
 name = "agfs_bench"
+harness = false
+
+[[bench]]
+name = "compute_bench"
+harness = false
+
+[[bench]]
+name = "vector_store_bench"
 harness = false

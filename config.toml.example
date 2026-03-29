@@ -24,3 +24,43 @@ output = "stdout"
 [agfs]
 default_scope = "resources"
 default_account = "default"
+
+# 向量存储插件配置
+[vector_store]
+plugin = "memory"  # memory, rocksdb, qdrant
+
+# Memory 配置（当 plugin = "memory" 时使用，无需额外配置）
+# [vector_store.memory]
+
+# RocksDB 配置（当 plugin = "rocksdb" 时使用）
+[vector_store.rocksdb]
+path = "./data/rustviking/vector_store"
+
+# Qdrant 配置（当 plugin = "qdrant" 时使用）
+# [vector_store.qdrant]
+# url = "http://localhost:6333"
+# collection = "rustviking"
+# timeout_ms = 5000
+
+# Embedding 插件配置
+[embedding]
+plugin = "mock"  # mock, openai, ollama
+
+# Mock 配置（当 plugin = "mock" 时使用）
+[embedding.mock]
+dimension = 1024
+
+# OpenAI 配置（当 plugin = "openai" 时使用）
+# [embedding.openai]
+# api_base = "https://api.openai.com/v1"
+# api_key = "sk-..."
+# model = "text-embedding-3-small"
+# dimension = 1536
+# max_concurrent = 10
+
+# Ollama 配置（当 plugin = "ollama" 时使用）
+# [embedding.ollama]
+# url = "http://localhost:11434"
+# model = "nomic-embed-text"
+# dimension = 768
+# max_concurrent = 5
