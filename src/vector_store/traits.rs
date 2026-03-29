@@ -16,7 +16,12 @@ pub trait VectorStore: Send + Sync {
     async fn initialize(&self, config: &Value) -> Result<()>;
 
     /// 创建集合
-    async fn create_collection(&self, name: &str, dimension: usize, params: IndexParams) -> Result<()>;
+    async fn create_collection(
+        &self,
+        name: &str,
+        dimension: usize,
+        params: IndexParams,
+    ) -> Result<()>;
 
     /// 插入/更新向量
     async fn upsert(&self, collection: &str, points: Vec<VectorPoint>) -> Result<()>;

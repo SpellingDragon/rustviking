@@ -120,7 +120,11 @@ pub async fn handle_write(
     Ok(())
 }
 
-pub async fn handle_mkdir(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_mkdir(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     vikingfs.mkdir(uri)?;
 
     match output_format {
@@ -245,7 +249,11 @@ pub async fn handle_ls(
     Ok(())
 }
 
-pub async fn handle_stat(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_stat(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     let info = vikingfs.stat(uri)?;
 
     match output_format {
@@ -286,7 +294,11 @@ pub async fn handle_stat(vikingfs: &VikingFS, uri: &str, output_format: &OutputF
     Ok(())
 }
 
-pub async fn handle_abstract(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_abstract(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     let content = vikingfs.read_abstract(uri)?;
 
     match output_format {
@@ -306,7 +318,11 @@ pub async fn handle_abstract(vikingfs: &VikingFS, uri: &str, output_format: &Out
     Ok(())
 }
 
-pub async fn handle_overview(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_overview(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     let content = vikingfs.read_overview(uri)?;
 
     match output_format {
@@ -326,7 +342,11 @@ pub async fn handle_overview(vikingfs: &VikingFS, uri: &str, output_format: &Out
     Ok(())
 }
 
-pub async fn handle_detail(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_detail(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     let bytes = vikingfs.read_detail(uri)?;
     let content = String::from_utf8_lossy(&bytes);
 
@@ -422,7 +442,11 @@ pub async fn handle_find(
     Ok(())
 }
 
-pub async fn handle_commit(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
+pub async fn handle_commit(
+    vikingfs: &VikingFS,
+    uri: &str,
+    output_format: &OutputFormat,
+) -> Result<()> {
     vikingfs.commit(uri).await?;
 
     match output_format {

@@ -371,7 +371,10 @@ async fn test_full_workflow_vector_store() {
     assert_eq!(results.len(), 2);
 
     // Clean up
-    store.delete_by_uri_prefix("documents", "/docs").await.unwrap();
+    store
+        .delete_by_uri_prefix("documents", "/docs")
+        .await
+        .unwrap();
 
     let info = store.collection_info("documents").await.unwrap();
     assert_eq!(info.count, 0);

@@ -273,7 +273,12 @@ impl VectorStore for RocksDBVectorStore {
         Ok(())
     }
 
-    async fn create_collection(&self, name: &str, dimension: usize, params: IndexParams) -> Result<()> {
+    async fn create_collection(
+        &self,
+        name: &str,
+        dimension: usize,
+        params: IndexParams,
+    ) -> Result<()> {
         let name_owned = name.to_string();
         let kv = self.kv.clone();
 
@@ -295,8 +300,8 @@ impl VectorStore for RocksDBVectorStore {
                 count: 0,
             };
 
-            let bytes =
-                bincode::serialize(&meta).map_err(|e| RustVikingError::Serialization(e.to_string()))?;
+            let bytes = bincode::serialize(&meta)
+                .map_err(|e| RustVikingError::Serialization(e.to_string()))?;
             kv.put(&key, &bytes)?;
 
             // Update cache (blocking context, but we need to handle the async RwLock)
@@ -408,14 +413,30 @@ impl VectorStore for RocksDBVectorStore {
             // Deserialize all points first
             let points: Vec<VectorPoint> = entries
                 .into_iter()
-                .filter_map(|(_, value_bytes)| serde_json::from_slice::<VectorPoint>(&value_bytes).ok())
+                .filter_map(|(_, value_bytes)| {
+                    serde_json::from_slice::<VectorPoint>(&value_bytes).ok()
+                })
                 .collect();
 
             // Use parallel computation for large collections
             let results = if points.len() >= PARALLEL_THRESHOLD {
-                Self::search_parallel(&query_owned, k, filters, &points, meta.distance, meta.dimension)
+                Self::search_parallel(
+                    &query_owned,
+                    k,
+                    filters,
+                    &points,
+                    meta.distance,
+                    meta.dimension,
+                )
             } else {
-                Self::search_sequential(&query_owned, k, filters, &points, meta.distance, meta.dimension)
+                Self::search_sequential(
+                    &query_owned,
+                    k,
+                    filters,
+                    &points,
+                    meta.distance,
+                    meta.dimension,
+                )
             };
 
             Ok(results)
@@ -713,7 +734,10 @@ mod tests {
         let (store, _temp) = create_test_store();
         let params = IndexParams::default();
 
-        store.create_collection("test", 3, params.clone()).await.unwrap();
+        store
+            .create_collection("test", 3, params.clone())
+            .await
+            .unwrap();
         assert!(store.create_collection("test", 3, params).await.is_err());
     }
 
@@ -779,7 +803,10 @@ mod tests {
         store.upsert("test", vec![p1, p2, p3]).await.unwrap();
 
         // Search for vector closest to [1.0, 0.0, 0.0]
-        let results = store.search("test", &[1.0, 0.0, 0.0], 2, None).await.unwrap();
+        let results = store
+            .search("test", &[1.0, 0.0, 0.0], 2, None)
+            .await
+            .unwrap();
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "p1"); // Closest
@@ -869,7 +896,10 @@ mod tests {
 
         store.upsert("test", vec![p1, p2]).await.unwrap();
 
-        store.update_uri("test", "/old/path", "/new/path").await.unwrap();
+        store
+            .update_uri("test", "/old/path", "/new/path")
+            .await
+            .unwrap();
 
         let updated_p1 = store.get("test", "p1").await.unwrap().unwrap();
         let updated_p2 = store.get("test", "p2").await.unwrap().unwrap();

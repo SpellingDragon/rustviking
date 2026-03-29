@@ -97,7 +97,12 @@ impl VectorStore for MemoryVectorStore {
         Ok(())
     }
 
-    async fn create_collection(&self, name: &str, dimension: usize, params: IndexParams) -> Result<()> {
+    async fn create_collection(
+        &self,
+        name: &str,
+        dimension: usize,
+        params: IndexParams,
+    ) -> Result<()> {
         let mut collections = self.collections.write().await;
 
         if collections.contains_key(name) {
@@ -442,7 +447,10 @@ mod tests {
         let store = MemoryVectorStore::new();
         let params = IndexParams::default();
 
-        store.create_collection("test", 3, params.clone()).await.unwrap();
+        store
+            .create_collection("test", 3, params.clone())
+            .await
+            .unwrap();
         assert!(store.create_collection("test", 3, params).await.is_err());
     }
 
@@ -500,7 +508,10 @@ mod tests {
         store.upsert("test", vec![p1, p2, p3]).await.unwrap();
 
         // Search for vector closest to [1.0, 0.0, 0.0]
-        let results = store.search("test", &[1.0, 0.0, 0.0], 2, None).await.unwrap();
+        let results = store
+            .search("test", &[1.0, 0.0, 0.0], 2, None)
+            .await
+            .unwrap();
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "p1"); // Closest
@@ -586,7 +597,10 @@ mod tests {
 
         store.upsert("test", vec![p1, p2]).await.unwrap();
 
-        store.update_uri("test", "/old/path", "/new/path").await.unwrap();
+        store
+            .update_uri("test", "/old/path", "/new/path")
+            .await
+            .unwrap();
 
         let updated_p1 = store.get("test", "p1").await.unwrap().unwrap();
         let updated_p2 = store.get("test", "p2").await.unwrap().unwrap();

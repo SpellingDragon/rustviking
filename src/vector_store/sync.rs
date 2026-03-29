@@ -96,7 +96,9 @@ impl VectorSyncManager {
         };
 
         // 3. Upsert into vector store
-        self.vector_store.upsert(&self.collection, vec![point]).await?;
+        self.vector_store
+            .upsert(&self.collection, vec![point])
+            .await?;
         Ok(())
     }
 
@@ -108,7 +110,8 @@ impl VectorSyncManager {
     /// * `uri` - The URI of the deleted file
     pub async fn on_file_deleted(&self, uri: &str) -> Result<()> {
         self.vector_store
-            .delete_by_uri_prefix(&self.collection, uri).await
+            .delete_by_uri_prefix(&self.collection, uri)
+            .await
     }
 
     /// Called when a file is moved/renamed in AGFS
@@ -120,7 +123,8 @@ impl VectorSyncManager {
     /// * `new_uri` - The new URI of the file
     pub async fn on_file_moved(&self, old_uri: &str, new_uri: &str) -> Result<()> {
         self.vector_store
-            .update_uri(&self.collection, old_uri, new_uri).await
+            .update_uri(&self.collection, old_uri, new_uri)
+            .await
     }
 
     /// Called when a file is updated in AGFS
@@ -147,7 +151,8 @@ impl VectorSyncManager {
         // 1. Delete old vectors
         self.on_file_deleted(uri).await?;
         // 2. Insert new vectors
-        self.on_file_created(uri, parent_uri, content, context_type, name, description).await
+        self.on_file_created(uri, parent_uri, content, context_type, name, description)
+            .await
     }
 
     /// Search for similar content
@@ -175,7 +180,8 @@ impl VectorSyncManager {
 
         // 2. Search in vector store
         self.vector_store
-            .search(&self.collection, &query_vector, k, filters).await
+            .search(&self.collection, &query_vector, k, filters)
+            .await
     }
 
     /// Get the collection name
@@ -314,7 +320,10 @@ mod tests {
             .unwrap();
 
         // Move the file
-        manager.on_file_moved("/old/path", "/new/path").await.unwrap();
+        manager
+            .on_file_moved("/old/path", "/new/path")
+            .await
+            .unwrap();
 
         // Verify the URI was updated
         let results = manager.search("test content", 10, None).await.unwrap();

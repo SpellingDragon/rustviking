@@ -50,7 +50,10 @@ async fn test_create_duplicate_collection() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("test", 64, params.clone()).await.unwrap();
+    store
+        .create_collection("test", 64, params.clone())
+        .await
+        .unwrap();
     let result = store.create_collection("test", 64, params).await;
 
     assert!(result.is_err());
@@ -65,7 +68,10 @@ async fn test_collection_info() {
         ..Default::default()
     };
 
-    store.create_collection("info_test", 256, params).await.unwrap();
+    store
+        .create_collection("info_test", 256, params)
+        .await
+        .unwrap();
     let info = store.collection_info("info_test").await.unwrap();
 
     assert_eq!(info.name, "info_test");
@@ -84,7 +90,10 @@ async fn test_upsert_and_get() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("upsert_test", 3, params).await.unwrap();
+    store
+        .create_collection("upsert_test", 3, params)
+        .await
+        .unwrap();
 
     let point = create_test_point("p1", vec![1.0, 2.0, 3.0], "/test/file1");
     store.upsert("upsert_test", vec![point]).await.unwrap();
@@ -128,7 +137,10 @@ async fn test_upsert_multiple_points() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("multi_test", 3, params).await.unwrap();
+    store
+        .create_collection("multi_test", 3, params)
+        .await
+        .unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
@@ -155,7 +167,10 @@ async fn test_search_basic() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("search_test", 3, params).await.unwrap();
+    store
+        .create_collection("search_test", 3, params)
+        .await
+        .unwrap();
 
     // Insert orthogonal vectors
     let points = vec![
@@ -183,7 +198,10 @@ async fn test_search_with_filter() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("filter_test", 3, params).await.unwrap();
+    store
+        .create_collection("filter_test", 3, params)
+        .await
+        .unwrap();
 
     // Create points with different context types
     let mut p1 = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1");
@@ -247,7 +265,10 @@ async fn test_search_with_in_filter() {
     let mut p3 = create_test_point("p3", vec![0.0, 0.0, 1.0], "/test/3");
     p3.payload = json!({"id": "p3", "uri": "/test/3", "level": 2});
 
-    store.upsert("in_filter_test", vec![p1, p2, p3]).await.unwrap();
+    store
+        .upsert("in_filter_test", vec![p1, p2, p3])
+        .await
+        .unwrap();
 
     // Filter for level in [0, 1]
     let filter = Filter::In("level".to_string(), vec![json!(0), json!(1)]);
@@ -267,7 +288,9 @@ async fn test_search_with_in_filter() {
 async fn test_search_nonexistent_collection() {
     let store = MemoryVectorStore::new();
 
-    let result = store.search("nonexistent", &[1.0, 0.0, 0.0], 10, None).await;
+    let result = store
+        .search("nonexistent", &[1.0, 0.0, 0.0], 10, None)
+        .await;
     assert!(result.is_err());
 }
 
@@ -276,7 +299,10 @@ async fn test_search_with_limit() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("limit_test", 3, params).await.unwrap();
+    store
+        .create_collection("limit_test", 3, params)
+        .await
+        .unwrap();
 
     let points: Vec<VectorPoint> = (0..10)
         .map(|i| {
@@ -304,7 +330,10 @@ async fn test_delete() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("delete_test", 3, params).await.unwrap();
+    store
+        .create_collection("delete_test", 3, params)
+        .await
+        .unwrap();
 
     let point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1");
     store.upsert("delete_test", vec![point]).await.unwrap();
@@ -363,7 +392,10 @@ async fn test_delete_by_uri_prefix_no_match() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("no_match_test", 3, params).await.unwrap();
+    store
+        .create_collection("no_match_test", 3, params)
+        .await
+        .unwrap();
 
     let point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/file1.txt");
     store.upsert("no_match_test", vec![point]).await.unwrap();
@@ -421,7 +453,10 @@ async fn test_update_uri_partial_match() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("partial_test", 3, params).await.unwrap();
+    store
+        .create_collection("partial_test", 3, params)
+        .await
+        .unwrap();
 
     let mut point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/old/path/file.txt");
     point.payload = json!({
@@ -473,7 +508,10 @@ async fn test_search_cosine_distance() {
         ..Default::default()
     };
 
-    store.create_collection("cosine_test", 3, params).await.unwrap();
+    store
+        .create_collection("cosine_test", 3, params)
+        .await
+        .unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
@@ -507,7 +545,10 @@ async fn test_search_l2_distance() {
     store.upsert("l2_test", points).await.unwrap();
 
     // Search with [1, 0, 0] - should find p1 first (L2 distance = 0)
-    let results = store.search("l2_test", &[1.0, 0.0, 0.0], 1, None).await.unwrap();
+    let results = store
+        .search("l2_test", &[1.0, 0.0, 0.0], 1, None)
+        .await
+        .unwrap();
     assert_eq!(results[0].id, "p1");
 }
 
@@ -519,7 +560,10 @@ async fn test_search_dot_product() {
         ..Default::default()
     };
 
-    store.create_collection("dot_test", 3, params).await.unwrap();
+    store
+        .create_collection("dot_test", 3, params)
+        .await
+        .unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
@@ -528,7 +572,10 @@ async fn test_search_dot_product() {
     store.upsert("dot_test", points).await.unwrap();
 
     // For dot product, higher is better (lower "distance")
-    let results = store.search("dot_test", &[1.0, 0.0, 0.0], 1, None).await.unwrap();
+    let results = store
+        .search("dot_test", &[1.0, 0.0, 0.0], 1, None)
+        .await
+        .unwrap();
     assert_eq!(results[0].id, "p1");
 }
 
@@ -544,7 +591,10 @@ async fn test_index_types() {
         index_type: IndexType::Flat,
         ..Default::default()
     };
-    store.create_collection("flat_test", 64, params).await.unwrap();
+    store
+        .create_collection("flat_test", 64, params)
+        .await
+        .unwrap();
     let info = store.collection_info("flat_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Flat);
 
@@ -553,7 +603,10 @@ async fn test_index_types() {
         index_type: IndexType::Hnsw,
         ..Default::default()
     };
-    store.create_collection("hnsw_test", 64, params).await.unwrap();
+    store
+        .create_collection("hnsw_test", 64, params)
+        .await
+        .unwrap();
     let info = store.collection_info("hnsw_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Hnsw);
 
@@ -562,7 +615,10 @@ async fn test_index_types() {
         index_type: IndexType::Ivf,
         ..Default::default()
     };
-    store.create_collection("ivf_test", 64, params).await.unwrap();
+    store
+        .create_collection("ivf_test", 64, params)
+        .await
+        .unwrap();
     let info = store.collection_info("ivf_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Ivf);
 
@@ -571,7 +627,10 @@ async fn test_index_types() {
         index_type: IndexType::FlatHybrid,
         ..Default::default()
     };
-    store.create_collection("hybrid_test", 64, params).await.unwrap();
+    store
+        .create_collection("hybrid_test", 64, params)
+        .await
+        .unwrap();
     let info = store.collection_info("hybrid_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::FlatHybrid);
 }
@@ -585,7 +644,10 @@ async fn test_get_nonexistent_point() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("empty_test", 3, params).await.unwrap();
+    store
+        .create_collection("empty_test", 3, params)
+        .await
+        .unwrap();
 
     let result = store.get("empty_test", "nonexistent").await.unwrap();
     assert!(result.is_none());
@@ -596,7 +658,10 @@ async fn test_delete_nonexistent_point() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("delete_test", 3, params).await.unwrap();
+    store
+        .create_collection("delete_test", 3, params)
+        .await
+        .unwrap();
 
     // Deleting non-existent point should succeed (no-op)
     let result = store.delete("delete_test", "nonexistent").await;
@@ -616,7 +681,10 @@ async fn test_upsert_wrong_dimension() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("dim_test", 3, params).await.unwrap();
+    store
+        .create_collection("dim_test", 3, params)
+        .await
+        .unwrap();
 
     // Try to insert vector with wrong dimension
     let point = create_test_point("p1", vec![1.0, 2.0], "/test/1"); // 2D instead of 3D
@@ -649,7 +717,10 @@ async fn test_sparse_vector_storage() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("sparse_test", 3, params).await.unwrap();
+    store
+        .create_collection("sparse_test", 3, params)
+        .await
+        .unwrap();
 
     let mut sparse = std::collections::HashMap::new();
     sparse.insert(0, 1.0);
@@ -664,7 +735,11 @@ async fn test_sparse_vector_storage() {
 
     store.upsert("sparse_test", vec![point]).await.unwrap();
 
-    let retrieved = store.get("sparse_test", "sparse_p1").await.unwrap().unwrap();
+    let retrieved = store
+        .get("sparse_test", "sparse_p1")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(retrieved.sparse_vector.is_some());
 
     let retrieved_sparse = retrieved.sparse_vector.unwrap();

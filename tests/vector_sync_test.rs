@@ -90,7 +90,10 @@ async fn test_file_created_with_all_metadata() {
         .await
         .unwrap();
 
-    let results = manager.search("skill implementation", 10, None).await.unwrap();
+    let results = manager
+        .search("skill implementation", 10, None)
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
 
     let metadata = &results[0].metadata;
@@ -203,7 +206,10 @@ async fn test_file_moved() {
         .unwrap();
 
     // Move the file
-    manager.on_file_moved("/old/path", "/new/path").await.unwrap();
+    manager
+        .on_file_moved("/old/path", "/new/path")
+        .await
+        .unwrap();
 
     // Verify the URI was updated
     let results = manager.search("test content", 10, None).await.unwrap();

@@ -7,13 +7,12 @@ use crate::error::{Result, RustVikingError};
 use crate::vector_store::traits::VectorStore;
 use crate::vector_store::types::*;
 
-use qdrant_client::qdrant::{
-    CollectionExistsRequest, Condition, CreateCollectionBuilder, DeletePointsBuilder,
-    Distance, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct, Range,
-    ScrollPointsBuilder, SearchPointsBuilder, SetPayloadPointsBuilder, UpsertPointsBuilder,
-    VectorParamsBuilder,
-};
 use qdrant_client::qdrant::r#match::MatchValue;
+use qdrant_client::qdrant::{
+    CollectionExistsRequest, Condition, CreateCollectionBuilder, DeletePointsBuilder, Distance,
+    GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct, Range, ScrollPointsBuilder,
+    SearchPointsBuilder, SetPayloadPointsBuilder, UpsertPointsBuilder, VectorParamsBuilder,
+};
 use qdrant_client::Payload;
 use qdrant_client::Qdrant;
 
@@ -42,9 +41,9 @@ impl QdrantVectorStore {
             builder = builder.api_key(key.to_string());
         }
 
-        let client = builder
-            .build()
-            .map_err(|e| RustVikingError::VectorStore(format!("Failed to create Qdrant client: {}", e)))?;
+        let client = builder.build().map_err(|e| {
+            RustVikingError::VectorStore(format!("Failed to create Qdrant client: {}", e))
+        })?;
 
         Ok(Self {
             client,
@@ -169,11 +168,7 @@ impl QdrantVectorStore {
             map.into()
         };
 
-        Ok(PointStruct::new(
-            point_id,
-            point.vector.clone(),
-            payload,
-        ))
+        Ok(PointStruct::new(point_id, point.vector.clone(), payload))
     }
 
     /// Convert Qdrant ScoredPoint to VectorSearchResult
@@ -236,7 +231,9 @@ impl QdrantVectorStore {
     }
 
     /// Extract VectorMetadata from payload
-    fn extract_metadata(payload: &std::collections::HashMap<String, qdrant_client::qdrant::Value>) -> Result<VectorMetadata> {
+    fn extract_metadata(
+        payload: &std::collections::HashMap<String, qdrant_client::qdrant::Value>,
+    ) -> Result<VectorMetadata> {
         let get_string = |key: &str| -> Option<String> {
             payload.get(key).and_then(|v| {
                 v.kind.as_ref().and_then(|k| match k {
@@ -296,10 +293,12 @@ impl QdrantVectorStore {
         match &value.kind {
             Some(kind) => match kind {
                 qdrant_client::qdrant::value::Kind::NullValue(_) => Ok(Value::Null),
-                qdrant_client::qdrant::value::Kind::DoubleValue(v) => {
-                    Ok(Value::Number(serde_json::Number::from_f64(*v).unwrap_or(0.into())))
+                qdrant_client::qdrant::value::Kind::DoubleValue(v) => Ok(Value::Number(
+                    serde_json::Number::from_f64(*v).unwrap_or(0.into()),
+                )),
+                qdrant_client::qdrant::value::Kind::IntegerValue(v) => {
+                    Ok(Value::Number((*v).into()))
                 }
-                qdrant_client::qdrant::value::Kind::IntegerValue(v) => Ok(Value::Number((*v).into())),
                 qdrant_client::qdrant::value::Kind::StringValue(v) => Ok(Value::String(v.clone())),
                 qdrant_client::qdrant::value::Kind::BoolValue(v) => Ok(Value::Bool(*v)),
                 qdrant_client::qdrant::value::Kind::StructValue(s) => {
@@ -333,10 +332,9 @@ impl VectorStore for QdrantVectorStore {
     async fn initialize(&self, _config: &Value) -> Result<()> {
         // Qdrant client is already initialized in new()
         // Optionally check connection here
-        self.client
-            .health_check()
-            .await
-            .map_err(|e| RustVikingError::VectorStore(format!("Qdrant health check failed: {}", e)))?;
+        self.client.health_check().await.map_err(|e| {
+            RustVikingError::VectorStore(format!("Qdrant health check failed: {}", e))
+        })?;
         Ok(())
     }
 
@@ -351,16 +349,16 @@ impl VectorStore for QdrantVectorStore {
         let builder = CreateCollectionBuilder::new(name)
             .vectors_config(VectorParamsBuilder::new(dimension as u64, distance));
 
-        self.client
-            .create_collection(builder)
-            .await
-            .map_err(|e| RustVikingError::VectorStore(format!("Failed to create collection: {}", e)))?;
+        self.client.create_collection(builder).await.map_err(|e| {
+            RustVikingError::VectorStore(format!("Failed to create collection: {}", e))
+        })?;
 
         Ok(())
     }
 
     async fn upsert(&self, collection: &str, points: Vec<VectorPoint>) -> Result<()> {
-        let qdrant_points: Result<Vec<PointStruct>> = points.iter().map(Self::to_point_struct).collect();
+        let qdrant_points: Result<Vec<PointStruct>> =
+            points.iter().map(Self::to_point_struct).collect();
         let qdrant_points = qdrant_points?;
 
         self.client
@@ -393,11 +391,7 @@ impl VectorStore for QdrantVectorStore {
             .await
             .map_err(|e| RustVikingError::VectorStore(format!("Search failed: {}", e)))?;
 
-        response
-            .result
-            .iter()
-            .map(Self::to_search_result)
-            .collect()
+        response.result.iter().map(Self::to_search_result).collect()
     }
 
     async fn get(&self, collection: &str, id: &str) -> Result<Option<VectorPoint>> {
@@ -466,10 +460,8 @@ impl VectorStore for QdrantVectorStore {
 
     async fn update_uri(&self, collection: &str, old_uri: &str, new_uri: &str) -> Result<()> {
         // First, scroll to find all points with the old URI
-        let filter = qdrant_client::qdrant::Filter::must([Condition::matches(
-            "uri",
-            old_uri.to_string(),
-        )]);
+        let filter =
+            qdrant_client::qdrant::Filter::must([Condition::matches("uri", old_uri.to_string())]);
 
         let scroll_response = self
             .client
@@ -491,7 +483,10 @@ impl VectorStore for QdrantVectorStore {
 
             let new_payload: Payload = {
                 let mut map = serde_json::Map::new();
-                map.insert("uri".to_string(), serde_json::Value::String(new_uri.to_string()));
+                map.insert(
+                    "uri".to_string(),
+                    serde_json::Value::String(new_uri.to_string()),
+                );
                 map.into()
             };
 
@@ -502,7 +497,9 @@ impl VectorStore for QdrantVectorStore {
                         .wait(true),
                 )
                 .await
-                .map_err(|e| RustVikingError::VectorStore(format!("Failed to update URI: {}", e)))?;
+                .map_err(|e| {
+                    RustVikingError::VectorStore(format!("Failed to update URI: {}", e))
+                })?;
         }
 
         Ok(())
@@ -515,7 +512,9 @@ impl VectorStore for QdrantVectorStore {
                 collection_name: collection.to_string(),
             })
             .await
-            .map_err(|e| RustVikingError::VectorStore(format!("Failed to check collection: {}", e)))?;
+            .map_err(|e| {
+                RustVikingError::VectorStore(format!("Failed to check collection: {}", e))
+            })?;
 
         if !exists {
             return Err(RustVikingError::CollectionNotFound(collection.to_string()));
@@ -527,23 +526,25 @@ impl VectorStore for QdrantVectorStore {
                 collection_name: collection.to_string(),
             })
             .await
-            .map_err(|e| RustVikingError::VectorStore(format!("Failed to get collection info: {}", e)))?;
+            .map_err(|e| {
+                RustVikingError::VectorStore(format!("Failed to get collection info: {}", e))
+            })?;
 
         let result = info.result.ok_or_else(|| {
             RustVikingError::VectorStore("Missing collection info result".to_string())
         })?;
 
-        let config = result.config.ok_or_else(|| {
-            RustVikingError::VectorStore("Missing collection config".to_string())
-        })?;
+        let config = result
+            .config
+            .ok_or_else(|| RustVikingError::VectorStore("Missing collection config".to_string()))?;
 
-        let params = config.params.ok_or_else(|| {
-            RustVikingError::VectorStore("Missing collection params".to_string())
-        })?;
+        let params = config
+            .params
+            .ok_or_else(|| RustVikingError::VectorStore("Missing collection params".to_string()))?;
 
-        let vectors_config = params.vectors_config.ok_or_else(|| {
-            RustVikingError::VectorStore("Missing vectors config".to_string())
-        })?;
+        let vectors_config = params
+            .vectors_config
+            .ok_or_else(|| RustVikingError::VectorStore("Missing vectors config".to_string()))?;
 
         // Extract vector params (handle both single and multiple vectors config)
         let vector_params = match vectors_config.config {

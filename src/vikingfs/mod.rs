@@ -138,7 +138,9 @@ impl VikingFS {
         let vector_store: Arc<dyn VectorStore> = match config.vector_store.plugin.as_str() {
             "memory" => {
                 let store = MemoryVectorStore::new();
-                store.create_collection("default", dimension, IndexParams::default()).await?;
+                store
+                    .create_collection("default", dimension, IndexParams::default())
+                    .await?;
                 Arc::new(store)
             }
             "rocksdb" => {
@@ -149,19 +151,27 @@ impl VikingFS {
                     .map(|c| c.path.clone())
                     .unwrap_or_else(|| format!("{}/vector_store", config.storage.path));
                 let store = RocksDBVectorStore::with_path(&path)?;
-                store.create_collection("default", dimension, IndexParams::default()).await?;
+                store
+                    .create_collection("default", dimension, IndexParams::default())
+                    .await?;
                 Arc::new(store)
             }
             "qdrant" => {
-                let qdrant_config = config.vector_store.qdrant.as_ref()
+                let qdrant_config = config
+                    .vector_store
+                    .qdrant
+                    .as_ref()
                     .ok_or_else(|| RustVikingError::Config("Qdrant config missing".into()))?;
                 let store = QdrantVectorStore::new(
                     &qdrant_config.url,
                     qdrant_config.api_key.as_deref(),
                     &qdrant_config.collection,
                     qdrant_config.timeout_ms,
-                ).await?;
-                store.create_collection("default", dimension, IndexParams::default()).await?;
+                )
+                .await?;
+                store
+                    .create_collection("default", dimension, IndexParams::default())
+                    .await?;
                 Arc::new(store) as Arc<dyn VectorStore>
             }
             _ => {
@@ -278,14 +288,9 @@ impl VikingFS {
         // Trigger vector sync
         let content = String::from_utf8_lossy(data);
         let parent_uri = viking_uri.parent().map(|p| p.to_uri_string());
-        self.vector_sync.on_file_created(
-            uri,
-            parent_uri.as_deref(),
-            &content,
-            "resource",
-            None,
-            None,
-        ).await?;
+        self.vector_sync
+            .on_file_created(uri, parent_uri.as_deref(), &content, "resource", None, None)
+            .await?;
 
         Ok(())
     }
@@ -466,21 +471,26 @@ impl VikingFS {
                         path: abstract_path,
                     };
 
-                    if let Err(e) =
-                        self.write(&abstract_uri.to_uri_string(), abstract_text.as_bytes()).await
+                    if let Err(e) = self
+                        .write(&abstract_uri.to_uri_string(), abstract_text.as_bytes())
+                        .await
                     {
                         eprintln!("[VikingFS] Failed to write abstract: {}", e);
                     }
 
                     // Sync to vector store if embedding provider is available
-                    if let Err(e) = self.vector_sync.on_file_created(
-                        &abstract_uri.to_uri_string(),
-                        Some(uri),
-                        &abstract_text,
-                        "abstract",
-                        None,
-                        Some(&abstract_text),
-                    ).await {
+                    if let Err(e) = self
+                        .vector_sync
+                        .on_file_created(
+                            &abstract_uri.to_uri_string(),
+                            Some(uri),
+                            &abstract_text,
+                            "abstract",
+                            None,
+                            Some(&abstract_text),
+                        )
+                        .await
+                    {
                         eprintln!("[VikingFS] Failed to sync abstract to vector store: {}", e);
                     }
                 }
@@ -564,7 +574,8 @@ impl VikingFS {
     ) -> Result<Vec<SearchResult>> {
         let results = self
             .vector_store
-            .search(collection, query_vector, k, None).await?;
+            .search(collection, query_vector, k, None)
+            .await?;
 
         Ok(results
             .into_iter()

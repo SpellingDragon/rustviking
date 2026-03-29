@@ -470,7 +470,10 @@ Check the docs.
     async fn test_generate_abstract_empty() {
         let provider = HeuristicSummaryProvider::new();
 
-        assert_eq!(provider.generate_abstract("").await.unwrap(), "(empty document)");
+        assert_eq!(
+            provider.generate_abstract("").await.unwrap(),
+            "(empty document)"
+        );
         assert_eq!(
             provider.generate_abstract("   ").await.unwrap(),
             "(empty document)"
@@ -508,7 +511,10 @@ Check the docs.
         let provider = HeuristicSummaryProvider::new();
 
         let texts: Vec<String> = vec![];
-        assert_eq!(provider.generate_overview(&texts).await.unwrap(), "(no content)");
+        assert_eq!(
+            provider.generate_overview(&texts).await.unwrap(),
+            "(no content)"
+        );
     }
 
     #[tokio::test]

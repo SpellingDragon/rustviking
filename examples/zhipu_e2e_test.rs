@@ -57,7 +57,10 @@ async fn main() {
     let mut collection_name = "test_collection";
     let dimension = 2048usize;
 
-    match store.create_collection(collection_name, dimension, IndexParams::default()).await {
+    match store
+        .create_collection(collection_name, dimension, IndexParams::default())
+        .await
+    {
         Ok(()) => println!(
             "✅ 集合 '{}' 创建成功 (dimension={})",
             collection_name, dimension
@@ -120,7 +123,10 @@ async fn main() {
 
         // 重新创建集合
         let new_collection = "test_collection_v2";
-        match store.create_collection(new_collection, actual_dimension, IndexParams::default()).await {
+        match store
+            .create_collection(new_collection, actual_dimension, IndexParams::default())
+            .await
+        {
             Ok(()) => {
                 collection_name = new_collection;
                 println!(

@@ -187,7 +187,8 @@ async fn run(cli: Cli) -> rustviking::error::Result<()> {
                 k,
                 level.as_deref(),
                 &cli.output,
-            ).await
+            )
+            .await
         }
         Commands::Commit { uri } => {
             let vikingfs = VikingFS::from_config(&config).await?;

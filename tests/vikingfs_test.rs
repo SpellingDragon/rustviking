@@ -46,7 +46,10 @@ async fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
         dimension,
         max_concurrent: 10,
     };
-    embedding_provider.initialize(embedding_config).await.unwrap();
+    embedding_provider
+        .initialize(embedding_config)
+        .await
+        .unwrap();
 
     // 4. Create VectorSyncManager
     let vector_sync = Arc::new(VectorSyncManager::new(
@@ -290,7 +293,10 @@ async fn test_vikingfs_find_returns_results() {
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     // 2. Call find to search for "rust"
-    let results = vikingfs.find("rust programming", None, 5, None).await.unwrap();
+    let results = vikingfs
+        .find("rust programming", None, 5, None)
+        .await
+        .unwrap();
 
     // 3. Verify results are returned
     // Note: With mock embeddings, results are deterministic but may not be semantically accurate
