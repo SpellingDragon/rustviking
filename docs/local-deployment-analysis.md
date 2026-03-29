@@ -940,32 +940,36 @@ match embedding_config.plugin.as_str() {
 
 ### 4.1 完全离线部署架构
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     RustViking                          │
-│                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │  VikingFS    │  │  VectorStore │  │  Embedding   │   │
-│  │  (AGFS)      │  │  (RocksDB)   │  │  (Ollama)    │   │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘   │
-│         │                 │                  │           │
-│         │                 │                  │           │
-│         ▼                 ▼                  ▼           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │  LocalFS     │  │  HNSW/IVF    │  │  Ollama     │   │
-│  │  (文件系统)   │  │  (向量索引)   │  │  (本地模型)  │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-              ┌─────────────────────────┐
-              │    本地磁盘存储           │
-              │  ./data/rustviking/      │
-              │  - storage/              │
-              │  - vector_store/         │
-              │  - local/                │
-              └─────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph RustViking["RustViking 本地部署架构"]
+        subgraph CoreLayer["核心层"]
+            VikingFS["VikingFS<br/>(AGFS)"]
+            VectorStore["VectorStore<br/>(RocksDB)"]
+            Embedding["Embedding<br/>(Ollama)"]
+        end
+        
+        subgraph BackendLayer["后端实现层"]
+            LocalFS["LocalFS<br/>(文件系统)"]
+            HNSW["HNSW/IVF<br/>(向量索引)"]
+            Ollama["Ollama<br/>(本地模型)"]
+        end
+    end
+    
+    Storage["本地磁盘存储<br/>./data/rustviking/"]
+    
+    VikingFS --> LocalFS
+    VectorStore --> HNSW
+    Embedding --> Ollama
+    
+    LocalFS --> Storage
+    HNSW --> Storage
+    Ollama -.->|"模型缓存"| Storage
+    
+    style RustViking fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style CoreLayer fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style BackendLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Storage fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
 ```
 
 ### 4.2 部署配置文件
