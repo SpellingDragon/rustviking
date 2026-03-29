@@ -290,9 +290,7 @@ mod tests {
                 metadata: Vec::new(),
             };
 
-            dirs.entry(parent.to_string())
-                .or_default()
-                .push(entry);
+            dirs.entry(parent.to_string()).or_default().push(entry);
         }
     }
 
