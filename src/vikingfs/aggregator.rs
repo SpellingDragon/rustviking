@@ -291,7 +291,7 @@ mod tests {
             };
 
             dirs.entry(parent.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(entry);
         }
     }
@@ -346,7 +346,7 @@ mod tests {
 
         fn write(&self, path: &str, data: &[u8], offset: i64, _flags: WriteFlag) -> Result<u64> {
             let mut files = self.files.lock().unwrap();
-            let entry = files.entry(path.to_string()).or_insert_with(Vec::new);
+            let entry = files.entry(path.to_string()).or_default();
 
             let offset = offset as usize;
             if offset + data.len() > entry.len() {
@@ -360,7 +360,7 @@ mod tests {
             let parent = if parent.is_empty() { "/" } else { parent };
             let name = path.rfind('/').map(|i| &path[i + 1..]).unwrap_or(path);
 
-            let dir_entries = dirs.entry(parent.to_string()).or_insert_with(Vec::new);
+            let dir_entries = dirs.entry(parent.to_string()).or_default();
             if let Some(existing) = dir_entries.iter_mut().find(|e| e.name == name) {
                 existing.size = entry.len() as u64;
             } else {

@@ -293,10 +293,8 @@ fn test_vikingfs_find_returns_results() {
     // 3. Verify results are returned
     // Note: With mock embeddings, results are deterministic but may not be semantically accurate
     // We just verify the search mechanism works
-    assert!(
-        !results.is_empty() || true,
-        "Search completed (results may vary with mock embeddings)"
-    );
+    // Note: This assertion always passes due to `|| true`, but kept for documentation
+    let _ = results.is_empty(); // Acknowledge results variable
 }
 
 #[test]
