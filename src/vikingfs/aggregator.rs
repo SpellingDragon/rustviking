@@ -4,10 +4,10 @@
 //! - Generates L0 abstracts for individual files
 //! - Aggregates L0s into L1 overviews for directories
 
-use std::sync::Arc;
+use super::SummaryProvider;
 use crate::agfs::MountableFS;
 use crate::error::Result;
-use super::SummaryProvider;
+use std::sync::Arc;
 
 /// Result of a directory aggregation operation
 #[derive(Debug)]
@@ -84,7 +84,10 @@ impl DirectorySummaryAggregator {
         let mut abstracts = Vec::new();
 
         // List directory contents
-        let entries = match self.agfs.route_operation(dir_path, |fs| fs.read_dir(dir_path)) {
+        let entries = match self
+            .agfs
+            .route_operation(dir_path, |fs| fs.read_dir(dir_path))
+        {
             Ok(entries) => entries,
             Err(e) => {
                 result.add_error(format!("Failed to read directory '{}': {}", dir_path, e));
@@ -150,7 +153,7 @@ impl DirectorySummaryAggregator {
             // Skip very large files (> 10MB)
             if size > 10 * 1024 * 1024 {
                 return Err(crate::error::RustVikingError::Storage(
-                    "File too large for summarization".to_string()
+                    "File too large for summarization".to_string(),
                 ));
             }
             fs.read(file_path, 0, size)
@@ -177,15 +180,17 @@ impl DirectorySummaryAggregator {
         let abstract_path = format!("{}.abstract.md", file_path);
         let abstract_content = format!(
             "# Abstract: {}\n\n{}\n\n---\n*Auto-generated abstract for {}*\n",
-            file_name,
-            abstract_text,
-            file_name
+            file_name, abstract_text, file_name
         );
 
         self.agfs.route_operation(&abstract_path, |fs| {
             use crate::agfs::WriteFlag;
-            fs.write(&abstract_path, abstract_content.as_bytes(), 0, 
-                WriteFlag::CREATE | WriteFlag::TRUNCATE)?;
+            fs.write(
+                &abstract_path,
+                abstract_content.as_bytes(),
+                0,
+                WriteFlag::CREATE | WriteFlag::TRUNCATE,
+            )?;
             Ok(())
         })?;
 
@@ -214,8 +219,12 @@ impl DirectorySummaryAggregator {
 
         self.agfs.route_operation(&overview_path, |fs| {
             use crate::agfs::WriteFlag;
-            fs.write(&overview_path, overview_content.as_bytes(), 0,
-                WriteFlag::CREATE | WriteFlag::TRUNCATE)?;
+            fs.write(
+                &overview_path,
+                overview_content.as_bytes(),
+                0,
+                WriteFlag::CREATE | WriteFlag::TRUNCATE,
+            )?;
             Ok(())
         })?;
 
@@ -252,7 +261,7 @@ mod tests {
         fn new() -> Self {
             let mut dirs = HashMap::new();
             dirs.insert("/".to_string(), Vec::new());
-            
+
             Self {
                 files: Mutex::new(HashMap::new()),
                 dirs: Mutex::new(dirs),
@@ -302,12 +311,21 @@ mod tests {
         }
 
         fn mkdir(&self, path: &str, _mode: u32) -> Result<()> {
-            self.dirs.lock().unwrap().insert(path.to_string(), Vec::new());
+            self.dirs
+                .lock()
+                .unwrap()
+                .insert(path.to_string(), Vec::new());
             Ok(())
         }
 
         fn read_dir(&self, path: &str) -> Result<Vec<FileInfo>> {
-            Ok(self.dirs.lock().unwrap().get(path).cloned().unwrap_or_default())
+            Ok(self
+                .dirs
+                .lock()
+                .unwrap()
+                .get(path)
+                .cloned()
+                .unwrap_or_default())
         }
 
         fn remove_all(&self, path: &str) -> Result<()> {
@@ -317,9 +335,9 @@ mod tests {
 
         fn read(&self, path: &str, offset: i64, size: u64) -> Result<Vec<u8>> {
             let files = self.files.lock().unwrap();
-            let data = files.get(path).ok_or_else(|| {
-                crate::error::RustVikingError::NotFound(path.to_string())
-            })?;
+            let data = files
+                .get(path)
+                .ok_or_else(|| crate::error::RustVikingError::NotFound(path.to_string()))?;
 
             let start = offset as usize;
             let end = (start + size as usize).min(data.len());
@@ -362,15 +380,16 @@ mod tests {
 
         fn size(&self, path: &str) -> Result<u64> {
             let files = self.files.lock().unwrap();
-            files.get(path).map(|d| d.len() as u64).ok_or_else(|| {
-                crate::error::RustVikingError::NotFound(path.to_string())
-            })
+            files
+                .get(path)
+                .map(|d| d.len() as u64)
+                .ok_or_else(|| crate::error::RustVikingError::NotFound(path.to_string()))
         }
 
         fn stat(&self, path: &str) -> Result<FileInfo> {
             let files = self.files.lock().unwrap();
             let size = files.get(path).map(|d| d.len() as u64).unwrap_or(0);
-            
+
             let is_dir = self.dirs.lock().unwrap().contains_key(path);
             let name = path.rfind('/').map(|i| &path[i + 1..]).unwrap_or(path);
 
@@ -386,8 +405,8 @@ mod tests {
         }
 
         fn exists(&self, path: &str) -> bool {
-            self.files.lock().unwrap().contains_key(path) ||
-            self.dirs.lock().unwrap().contains_key(path)
+            self.files.lock().unwrap().contains_key(path)
+                || self.dirs.lock().unwrap().contains_key(path)
         }
 
         fn open_read(&self, _path: &str) -> Result<Box<dyn Read + Send>> {
@@ -413,7 +432,7 @@ mod tests {
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs);
 
         let result = aggregator.aggregate("/resources/test").unwrap();
-        
+
         assert_eq!(result.abstracts_generated, 0);
         assert!(!result.overview_generated);
     }
@@ -421,7 +440,7 @@ mod tests {
     #[test]
     fn test_aggregate_with_files() {
         let agfs = create_test_mountable_fs();
-        
+
         // Add test files
         if let Some(fs) = agfs.route("/resources/test") {
             let fs = Arc::clone(&fs);
@@ -430,20 +449,22 @@ mod tests {
                 b"# Document 1\n\nThis is the content of document 1.",
                 0,
                 WriteFlag::CREATE | WriteFlag::TRUNCATE,
-            ).unwrap();
+            )
+            .unwrap();
             fs.write(
                 "/resources/test/doc2.md",
                 b"# Document 2\n\nThis is the content of document 2.",
                 0,
                 WriteFlag::CREATE | WriteFlag::TRUNCATE,
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         let summary_provider: Arc<dyn SummaryProvider> = Arc::new(HeuristicSummaryProvider::new());
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs.clone());
 
         let result = aggregator.aggregate("/resources/test").unwrap();
-        
+
         assert_eq!(result.abstracts_generated, 2);
         assert!(result.overview_generated);
         assert!(result.errors.is_empty());
@@ -463,7 +484,7 @@ mod tests {
     #[test]
     fn test_aggregate_skips_special_files() {
         let agfs = create_test_mountable_fs();
-        
+
         // Add test files including special ones
         if let Some(fs) = agfs.route("/resources/test") {
             let fs = Arc::clone(&fs);
@@ -472,26 +493,29 @@ mod tests {
                 b"# Document\n\nContent here.",
                 0,
                 WriteFlag::CREATE | WriteFlag::TRUNCATE,
-            ).unwrap();
+            )
+            .unwrap();
             fs.write(
                 "/resources/test/.abstract.md",
                 b"Existing abstract",
                 0,
                 WriteFlag::CREATE | WriteFlag::TRUNCATE,
-            ).unwrap();
+            )
+            .unwrap();
             fs.write(
                 "/resources/test/.overview.md",
                 b"Existing overview",
                 0,
                 WriteFlag::CREATE | WriteFlag::TRUNCATE,
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         let summary_provider: Arc<dyn SummaryProvider> = Arc::new(HeuristicSummaryProvider::new());
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs);
 
         let result = aggregator.aggregate("/resources/test").unwrap();
-        
+
         // Should only process doc.md, not the special files
         assert_eq!(result.abstracts_generated, 1);
     }
@@ -499,7 +523,7 @@ mod tests {
     #[test]
     fn test_aggregate_result() {
         let mut result = AggregateResult::new();
-        
+
         assert_eq!(result.abstracts_generated, 0);
         assert!(!result.overview_generated);
         assert!(result.errors.is_empty());

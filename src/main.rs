@@ -5,7 +5,6 @@ use clap::Parser;
 use rustviking::agfs::MountableFS;
 use rustviking::cli::commands::*;
 use rustviking::cli::{fs_commands, index_commands, store_commands, viking_commands};
-use rustviking::vikingfs::VikingFS;
 use rustviking::config::Config;
 use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::openai::OpenAIEmbeddingProvider;
@@ -16,6 +15,7 @@ use rustviking::plugins::PluginRegistry;
 use rustviking::storage::RocksKvStore;
 use rustviking::vector_store::memory::MemoryVectorStore;
 use rustviking::vector_store::rocks::RocksDBVectorStore;
+use rustviking::vikingfs::VikingFS;
 
 fn main() {
     // Initialize tracing
@@ -132,7 +132,11 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
             let vikingfs = VikingFS::from_config(&config)?;
             viking_commands::handle_read(&vikingfs, &uri, level.as_deref(), &cli.output)
         }
-        Commands::Write { uri, data, auto_summary } => {
+        Commands::Write {
+            uri,
+            data,
+            auto_summary,
+        } => {
             let vikingfs = VikingFS::from_config(&config)?;
             viking_commands::handle_write(&vikingfs, &uri, &data, auto_summary, &cli.output)
         }
@@ -168,9 +172,21 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
             let vikingfs = VikingFS::from_config(&config)?;
             viking_commands::handle_detail(&vikingfs, &uri, &cli.output)
         }
-        Commands::Find { query, target, k, level } => {
+        Commands::Find {
+            query,
+            target,
+            k,
+            level,
+        } => {
             let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_find(&vikingfs, &query, target.as_deref(), k, level.as_deref(), &cli.output)
+            viking_commands::handle_find(
+                &vikingfs,
+                &query,
+                target.as_deref(),
+                k,
+                level.as_deref(),
+                &cli.output,
+            )
         }
         Commands::Commit { uri } => {
             let vikingfs = VikingFS::from_config(&config)?;

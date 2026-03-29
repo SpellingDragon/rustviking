@@ -264,8 +264,9 @@ impl HnswIndexPersister {
                     let id: u64 = parts[2]
                         .parse::<u64>()
                         .map_err(|e| RustVikingError::Serialization(e.to_string()))?;
-                    let level: u8 = bincode::deserialize(&value)
-                        .map_err(|e: bincode::Error| RustVikingError::Serialization(e.to_string()))?;
+                    let level: u8 = bincode::deserialize(&value).map_err(|e: bincode::Error| {
+                        RustVikingError::Serialization(e.to_string())
+                    })?;
                     map.insert(id, level);
                 }
             }
@@ -286,8 +287,10 @@ impl HnswIndexPersister {
                     let id: u64 = parts[2]
                         .parse::<u64>()
                         .map_err(|e| RustVikingError::Serialization(e.to_string()))?;
-                    let vector: Vec<f32> = bincode::deserialize(&value)
-                        .map_err(|e: bincode::Error| RustVikingError::Serialization(e.to_string()))?;
+                    let vector: Vec<f32> =
+                        bincode::deserialize(&value).map_err(|e: bincode::Error| {
+                            RustVikingError::Serialization(e.to_string())
+                        })?;
                     map.insert(id, vector);
                 }
             }

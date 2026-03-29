@@ -56,7 +56,6 @@ pub enum Commands {
     },
 
     // === VikingFS 语义层命令 ===
-
     /// 读取文件内容（支持 L0/L1/L2 级别）
     Read {
         #[arg(help = "Viking URI")]
@@ -355,7 +354,13 @@ mod tests {
 
     #[test]
     fn test_parse_vikingfs_read_with_level() {
-        let cli = Cli::parse_from(["rustviking", "read", "viking://resources/test.md", "-l", "L0"]);
+        let cli = Cli::parse_from([
+            "rustviking",
+            "read",
+            "viking://resources/test.md",
+            "-l",
+            "L0",
+        ]);
         match cli.command {
             Commands::Read { uri, level } => {
                 assert_eq!(uri, "viking://resources/test.md");
@@ -375,7 +380,11 @@ mod tests {
             "Hello World",
         ]);
         match cli.command {
-            Commands::Write { uri, data, auto_summary } => {
+            Commands::Write {
+                uri,
+                data,
+                auto_summary,
+            } => {
                 assert_eq!(uri, "viking://resources/test.md");
                 assert_eq!(data, "Hello World");
                 assert!(!auto_summary);
@@ -514,7 +523,12 @@ mod tests {
     fn test_parse_vikingfs_find() {
         let cli = Cli::parse_from(["rustviking", "find", "search query"]);
         match cli.command {
-            Commands::Find { query, target, k, level } => {
+            Commands::Find {
+                query,
+                target,
+                k,
+                level,
+            } => {
                 assert_eq!(query, "search query");
                 assert_eq!(target, None);
                 assert_eq!(k, 10); // default value
@@ -538,7 +552,12 @@ mod tests {
             "L1",
         ]);
         match cli.command {
-            Commands::Find { query, target, k, level } => {
+            Commands::Find {
+                query,
+                target,
+                k,
+                level,
+            } => {
                 assert_eq!(query, "search query");
                 assert_eq!(target, Some("viking://resources".to_string()));
                 assert_eq!(k, 5);

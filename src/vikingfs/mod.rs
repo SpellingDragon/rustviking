@@ -129,20 +129,12 @@ impl VikingFS {
         let agfs = Arc::new(setup_agfs(&config.storage.path)?);
 
         // 2. Create vector store based on config
-        let dimension = config
-            .vector
-            .as_ref()
-            .map(|v| v.dimension)
-            .unwrap_or(768);
-        
+        let dimension = config.vector.as_ref().map(|v| v.dimension).unwrap_or(768);
+
         let vector_store: Arc<dyn VectorStore> = match config.vector_store.plugin.as_str() {
             "memory" => {
                 let store = MemoryVectorStore::new();
-                store.create_collection(
-                    "default",
-                    dimension,
-                    IndexParams::default(),
-                )?;
+                store.create_collection("default", dimension, IndexParams::default())?;
                 Arc::new(store)
             }
             "rocksdb" => {
@@ -153,11 +145,7 @@ impl VikingFS {
                     .map(|c| c.path.clone())
                     .unwrap_or_else(|| format!("{}/vector_store", config.storage.path));
                 let store = RocksDBVectorStore::with_path(&path)?;
-                store.create_collection(
-                    "default",
-                    dimension,
-                    IndexParams::default(),
-                )?;
+                store.create_collection("default", dimension, IndexParams::default())?;
                 Arc::new(store)
             }
             _ => {
@@ -169,7 +157,8 @@ impl VikingFS {
         };
 
         // 3. Create embedding provider based on config
-        let embedding_provider: Arc<dyn EmbeddingProvider> = match config.embedding.plugin.as_str() {
+        let embedding_provider: Arc<dyn EmbeddingProvider> = match config.embedding.plugin.as_str()
+        {
             "mock" => {
                 let dimension = config
                     .embedding
@@ -178,7 +167,7 @@ impl VikingFS {
                     .map(|m| m.dimension)
                     .unwrap_or(1024);
                 let provider = MockEmbeddingProvider::new(dimension);
-                
+
                 // Initialize embedding provider
                 let embedding_config = EmbeddingConfig {
                     api_base: String::new(),
@@ -205,7 +194,7 @@ impl VikingFS {
                     provider.initialize(embedding_config)?;
                 } else {
                     return Err(RustVikingError::Config(
-                        "OpenAI embedding provider requires openai configuration".to_string()
+                        "OpenAI embedding provider requires openai configuration".to_string(),
                     ));
                 }
                 Arc::new(provider)
@@ -249,9 +238,8 @@ impl VikingFS {
         let viking_uri = VikingUri::parse(uri)?;
         let path = viking_uri.to_internal_path();
 
-        self.agfs.route_operation(&path, |fs| {
-            fs.read(&path, 0, fs.size(&path)?)
-        })
+        self.agfs
+            .route_operation(&path, |fs| fs.read(&path, 0, fs.size(&path)?))
     }
 
     /// Write file content
@@ -294,9 +282,8 @@ impl VikingFS {
         let viking_uri = VikingUri::parse(uri)?;
         let path = viking_uri.to_internal_path();
 
-        self.agfs.route_operation(&path, |fs| {
-            fs.mkdir(&path, 0o755)
-        })
+        self.agfs
+            .route_operation(&path, |fs| fs.mkdir(&path, 0o755))
     }
 
     /// Remove a file or directory
@@ -393,9 +380,9 @@ impl VikingFS {
         };
         let path = abstract_uri.to_internal_path();
 
-        let data = self.agfs.route_operation(&path, |fs| {
-            fs.read(&path, 0, fs.size(&path)?)
-        })?;
+        let data = self
+            .agfs
+            .route_operation(&path, |fs| fs.read(&path, 0, fs.size(&path)?))?;
 
         String::from_utf8(data).map_err(|e| {
             RustVikingError::Serialization(format!("Invalid UTF-8 in abstract: {}", e))
@@ -411,9 +398,9 @@ impl VikingFS {
         let overview_uri = viking_uri.join(".overview.md");
         let path = overview_uri.to_internal_path();
 
-        let data = self.agfs.route_operation(&path, |fs| {
-            fs.read(&path, 0, fs.size(&path)?)
-        })?;
+        let data = self
+            .agfs
+            .route_operation(&path, |fs| fs.read(&path, 0, fs.size(&path)?))?;
 
         String::from_utf8(data).map_err(|e| {
             RustVikingError::Serialization(format!("Invalid UTF-8 in overview: {}", e))
@@ -444,7 +431,7 @@ impl VikingFS {
         if auto_summary {
             // Generate L0 abstract
             let content = String::from_utf8_lossy(data);
-            
+
             match self.summary_provider.generate_abstract(&content) {
                 Ok(abstract_text) => {
                     // Write .abstract.md using suffix pattern: file.md -> file.md.abstract.md
@@ -462,11 +449,13 @@ impl VikingFS {
                         account: viking_uri.account.clone(),
                         path: abstract_path,
                     };
-                    
-                    if let Err(e) = self.write(&abstract_uri.to_uri_string(), abstract_text.as_bytes()) {
+
+                    if let Err(e) =
+                        self.write(&abstract_uri.to_uri_string(), abstract_text.as_bytes())
+                    {
                         eprintln!("[VikingFS] Failed to write abstract: {}", e);
                     }
-                    
+
                     // Sync to vector store if embedding provider is available
                     if let Err(e) = self.vector_sync.on_file_created(
                         &abstract_uri.to_uri_string(),
@@ -512,11 +501,20 @@ impl VikingFS {
         // Build filter
         let filters = match (target_uri, level) {
             (Some(uri), Some(l)) => Some(Filter::And(vec![
-                Filter::In("uri".to_string(), vec![serde_json::Value::String(uri.to_string())]),
+                Filter::In(
+                    "uri".to_string(),
+                    vec![serde_json::Value::String(uri.to_string())],
+                ),
                 Filter::Eq("level".to_string(), serde_json::Value::Number(l.into())),
             ])),
-            (Some(uri), None) => Some(Filter::In("uri".to_string(), vec![serde_json::Value::String(uri.to_string())])),
-            (None, Some(l)) => Some(Filter::Eq("level".to_string(), serde_json::Value::Number(l.into()))),
+            (Some(uri), None) => Some(Filter::In(
+                "uri".to_string(),
+                vec![serde_json::Value::String(uri.to_string())],
+            )),
+            (None, Some(l)) => Some(Filter::Eq(
+                "level".to_string(),
+                serde_json::Value::Number(l.into()),
+            )),
             (None, None) => None,
         };
 
@@ -597,7 +595,11 @@ impl VikingFS {
             "[VikingFS] Committed '{}': {} abstracts generated, overview: {}",
             uri,
             result.abstracts_generated,
-            if result.overview_generated { "yes" } else { "no" }
+            if result.overview_generated {
+                "yes"
+            } else {
+                "no"
+            }
         );
 
         Ok(())

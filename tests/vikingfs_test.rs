@@ -110,9 +110,18 @@ fn test_vikingfs_commit_generates_overview() {
 
     // 1. Write multiple files to the same directory
     let files = vec![
-        ("viking://resources/test/file1.md", b"# File 1\n\nContent of file 1."),
-        ("viking://resources/test/file2.md", b"# File 2\n\nContent of file 2."),
-        ("viking://resources/test/file3.md", b"# File 3\n\nContent of file 3."),
+        (
+            "viking://resources/test/file1.md",
+            b"# File 1\n\nContent of file 1.",
+        ),
+        (
+            "viking://resources/test/file2.md",
+            b"# File 2\n\nContent of file 2.",
+        ),
+        (
+            "viking://resources/test/file3.md",
+            b"# File 3\n\nContent of file 3.",
+        ),
     ];
 
     for (uri, content) in &files {
@@ -221,13 +230,18 @@ fn test_vikingfs_read_abstract_overview_detail() {
     // 1. Use write_context to write content with auto_summary
     let uri = "viking://resources/test/context_doc.md";
     let content = "# Main Document\n\nThis is the main content of the document. It contains detailed information about the project structure and implementation.\n\n## Section 1\n\nDetails about section 1.\n\n## Section 2\n\nDetails about section 2.";
-    vikingfs.write_context(uri, content.as_bytes(), true).unwrap();
+    vikingfs
+        .write_context(uri, content.as_bytes(), true)
+        .unwrap();
 
     // 2. read_abstract - read L0
     let abstract_content = vikingfs.read_abstract(uri).unwrap();
     assert!(!abstract_content.is_empty());
     // Abstract should contain some reference to the content (check for non-empty meaningful content)
-    assert!(abstract_content.len() > 10, "Abstract should have meaningful content");
+    assert!(
+        abstract_content.len() > 10,
+        "Abstract should have meaningful content"
+    );
 
     // 3. Commit to generate overview
     let dir_uri = "viking://resources/test";
@@ -249,9 +263,21 @@ fn test_vikingfs_find_returns_results() {
 
     // 1. Write several files with different content
     let files = vec![
-        ("viking://resources/test/rust_guide.md", "# Rust Guide\n\nRust is a systems programming language.", "rust"),
-        ("viking://resources/test/python_guide.md", "# Python Guide\n\nPython is a high-level programming language.", "python"),
-        ("viking://resources/test/js_guide.md", "# JavaScript Guide\n\nJavaScript is used for web development.", "javascript"),
+        (
+            "viking://resources/test/rust_guide.md",
+            "# Rust Guide\n\nRust is a systems programming language.",
+            "rust",
+        ),
+        (
+            "viking://resources/test/python_guide.md",
+            "# Python Guide\n\nPython is a high-level programming language.",
+            "python",
+        ),
+        (
+            "viking://resources/test/js_guide.md",
+            "# JavaScript Guide\n\nJavaScript is used for web development.",
+            "javascript",
+        ),
     ];
 
     for (uri, content, _tag) in &files {
@@ -267,7 +293,10 @@ fn test_vikingfs_find_returns_results() {
     // 3. Verify results are returned
     // Note: With mock embeddings, results are deterministic but may not be semantically accurate
     // We just verify the search mechanism works
-    assert!(!results.is_empty() || true, "Search completed (results may vary with mock embeddings)");
+    assert!(
+        !results.is_empty() || true,
+        "Search completed (results may vary with mock embeddings)"
+    );
 }
 
 #[test]

@@ -62,9 +62,7 @@ impl IvfIndexPersister {
 
         let db = DB::open(&opts, path).map_err(|e| RustVikingError::Storage(e.to_string()))?;
 
-        Ok(Self {
-            db: Arc::new(db),
-        })
+        Ok(Self { db: Arc::new(db) })
     }
 
     /// Persist an entire IvfIndex to RocksDB
@@ -202,9 +200,7 @@ impl IvfIndexPersister {
     pub fn restore_centroids(&self) -> Result<Vec<Vec<f32>>> {
         let mut centroids = Vec::new();
 
-        let iter = self
-            .db
-            .prefix_iterator(keys::CENTROID_PREFIX);
+        let iter = self.db.prefix_iterator(keys::CENTROID_PREFIX);
         for item in iter {
             let (key, value) = item.map_err(|e| RustVikingError::Storage(e.to_string()))?;
             if key.starts_with(keys::CENTROID_PREFIX) {
@@ -222,7 +218,10 @@ impl IvfIndexPersister {
 
     /// Restore all vectors in a partition
     /// Returns Vec<(id, vector, level)>
-    pub fn restore_partition_vectors(&self, partition_id: usize) -> Result<Vec<(u64, Vec<f32>, u8)>> {
+    pub fn restore_partition_vectors(
+        &self,
+        partition_id: usize,
+    ) -> Result<Vec<(u64, Vec<f32>, u8)>> {
         let prefix = Self::make_vector_prefix(partition_id);
         let mut vectors = Vec::new();
 
@@ -292,8 +291,8 @@ impl IvfIndexPersister {
             created_at: chrono::Utc::now().timestamp(),
         };
         let meta_key = Self::make_meta_key(id);
-        let meta_value = bincode::serialize(&meta)
-            .map_err(|e| RustVikingError::Serialization(e.to_string()))?;
+        let meta_value =
+            bincode::serialize(&meta).map_err(|e| RustVikingError::Serialization(e.to_string()))?;
         self.db
             .put(&meta_key, &meta_value)
             .map_err(|e| RustVikingError::Storage(e.to_string()))?;
@@ -318,8 +317,8 @@ impl IvfIndexPersister {
     }
 
     fn parse_vector_id(key: &[u8]) -> Result<u64> {
-        let key_str = std::str::from_utf8(key)
-            .map_err(|e| RustVikingError::Serialization(e.to_string()))?;
+        let key_str =
+            std::str::from_utf8(key).map_err(|e| RustVikingError::Serialization(e.to_string()))?;
         let parts: Vec<&str> = key_str.split(':').collect();
         if parts.len() >= 4 {
             parts[3]
@@ -482,8 +481,12 @@ mod tests {
         persister.persist_config(&config).unwrap();
 
         // Add vectors incrementally
-        persister.persist_vector(0, 1, &[1.0, 2.0, 3.0, 4.0], 2).unwrap();
-        persister.persist_vector(1, 2, &[5.0, 6.0, 7.0, 8.0], 1).unwrap();
+        persister
+            .persist_vector(0, 1, &[1.0, 2.0, 3.0, 4.0], 2)
+            .unwrap();
+        persister
+            .persist_vector(1, 2, &[5.0, 6.0, 7.0, 8.0], 1)
+            .unwrap();
 
         // Verify they can be restored
         let vecs0 = persister.restore_partition_vectors(0).unwrap();

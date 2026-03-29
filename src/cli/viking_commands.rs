@@ -20,7 +20,10 @@ fn output_json(status: &str, data: serde_json::Value) {
         "status": status,
         "data": data,
     });
-    println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&output).unwrap_or_default()
+    );
 }
 
 /// 输出错误信息（保留供将来使用）
@@ -30,7 +33,10 @@ fn output_error(message: &str) {
         "status": "error",
         "message": message,
     });
-    eprintln!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    eprintln!(
+        "{}",
+        serde_json::to_string_pretty(&output).unwrap_or_default()
+    );
 }
 
 /// 输出纯文本内容
@@ -65,7 +71,10 @@ pub fn handle_read(
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "level": level, "content": content}));
+            output_json(
+                "ok",
+                serde_json::json!({"uri": uri, "level": level, "content": content}),
+            );
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -209,15 +218,15 @@ pub fn handle_ls(
                     })
                 })
                 .collect();
-            output_json("ok", serde_json::json!({"uri": uri, "entries": entries_json}));
+            output_json(
+                "ok",
+                serde_json::json!({"uri": uri, "entries": entries_json}),
+            );
         }
         OutputFormat::Plain => {
             for entry in &entries {
                 let type_indicator = if entry.is_dir { "d" } else { "-" };
-                println!(
-                    "{}{:>10} {}",
-                    type_indicator, entry.size, entry.name
-                );
+                println!("{}{:>10} {}", type_indicator, entry.size, entry.name);
             }
         }
         OutputFormat::Table => {
@@ -277,16 +286,15 @@ pub fn handle_stat(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat)
     Ok(())
 }
 
-pub fn handle_abstract(
-    vikingfs: &VikingFS,
-    uri: &str,
-    output_format: &OutputFormat,
-) -> Result<()> {
+pub fn handle_abstract(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
     let content = vikingfs.read_abstract(uri)?;
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "level": "L0", "abstract": content}));
+            output_json(
+                "ok",
+                serde_json::json!({"uri": uri, "level": "L0", "abstract": content}),
+            );
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -298,16 +306,15 @@ pub fn handle_abstract(
     Ok(())
 }
 
-pub fn handle_overview(
-    vikingfs: &VikingFS,
-    uri: &str,
-    output_format: &OutputFormat,
-) -> Result<()> {
+pub fn handle_overview(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
     let content = vikingfs.read_overview(uri)?;
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "level": "L1", "overview": content}));
+            output_json(
+                "ok",
+                serde_json::json!({"uri": uri, "level": "L1", "overview": content}),
+            );
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -319,17 +326,16 @@ pub fn handle_overview(
     Ok(())
 }
 
-pub fn handle_detail(
-    vikingfs: &VikingFS,
-    uri: &str,
-    output_format: &OutputFormat,
-) -> Result<()> {
+pub fn handle_detail(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
     let bytes = vikingfs.read_detail(uri)?;
     let content = String::from_utf8_lossy(&bytes);
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "level": "L2", "content": content.to_string()}));
+            output_json(
+                "ok",
+                serde_json::json!({"uri": uri, "level": "L2", "content": content.to_string()}),
+            );
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -387,7 +393,10 @@ pub fn handle_find(
                     result.score
                 );
                 if let Some(abstract_text) = &result.abstract_text {
-                    println!("   Abstract: {}", abstract_text.chars().take(100).collect::<String>());
+                    println!(
+                        "   Abstract: {}",
+                        abstract_text.chars().take(100).collect::<String>()
+                    );
                 }
             }
         }
@@ -413,11 +422,7 @@ pub fn handle_find(
     Ok(())
 }
 
-pub fn handle_commit(
-    vikingfs: &VikingFS,
-    uri: &str,
-    output_format: &OutputFormat,
-) -> Result<()> {
+pub fn handle_commit(vikingfs: &VikingFS, uri: &str, output_format: &OutputFormat) -> Result<()> {
     vikingfs.commit(uri)?;
 
     match output_format {

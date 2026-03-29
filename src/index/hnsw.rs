@@ -356,7 +356,7 @@ impl HnswIndex {
 
     /// Load the HNSW graph from files (creates a new empty graph)
     ///
-    /// The actual restoration is handled by HnswIndexPersister which 
+    /// The actual restoration is handled by HnswIndexPersister which
     /// rebuilds the graph from stored vectors.
     pub fn load_graph(
         params: &HnswParams,
