@@ -1,20 +1,18 @@
 //! Vector Index Benchmark
 //!
-//! Benchmarks for IvfPqIndex vector operations.
+//! Benchmarks for IvfIndex vector operations.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType, VectorIndex};
+use rustviking::index::{IvfIndex, IvfParams, MetricType, VectorIndex};
 
 const DIMENSION: usize = 128;
 
-fn create_index() -> IvfPqIndex {
-    let params = IvfPqParams {
+fn create_index() -> IvfIndex {
+    let params = IvfParams {
         num_partitions: 8,
-        num_sub_vectors: 8,
-        pq_bits: 8,
         metric: MetricType::L2,
     };
-    IvfPqIndex::new(params, DIMENSION)
+    IvfIndex::new(params, DIMENSION)
 }
 
 fn generate_random_vector(dim: usize, seed: u64) -> Vec<f32> {

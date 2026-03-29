@@ -3,20 +3,18 @@
 //! End-to-end tests for vector indexing operations.
 
 use rustviking::index::{
-    Bitmap, HnswIndex, HnswParams, IvfPqIndex, IvfPqParams, LayeredIndex, MetricType, VectorIndex,
+    Bitmap, HnswIndex, HnswParams, IvfIndex, IvfParams, LayeredIndex, MetricType, VectorIndex,
     LEVEL_L0, LEVEL_L1, LEVEL_L2,
 };
 use std::sync::Arc;
 
 #[test]
-fn test_ivf_pq_end_to_end() {
-    let params = IvfPqParams {
+fn test_ivf_end_to_end() {
+    let params = IvfParams {
         num_partitions: 4,
-        num_sub_vectors: 2,
-        pq_bits: 8,
         metric: MetricType::L2,
     };
-    let index = IvfPqIndex::new(params, 4);
+    let index = IvfIndex::new(params, 4);
 
     // Generate training data
     let training_data: Vec<Vec<f32>> = (0..20)
@@ -44,9 +42,9 @@ fn test_ivf_pq_end_to_end() {
 #[test]
 fn test_hnsw_end_to_end() {
     let params = HnswParams {
-        m: 8,
-        ef_construction: 32,
-        ef_search: 16,
+        m: 16,
+        ef_construction: 200,
+        ef_search: 50,
         metric: MetricType::L2,
     };
     let index = HnswIndex::new(params, 3);
@@ -66,13 +64,11 @@ fn test_hnsw_end_to_end() {
 
 #[test]
 fn test_layered_index() {
-    let params = IvfPqParams {
+    let params = IvfParams {
         num_partitions: 2,
-        num_sub_vectors: 1,
-        pq_bits: 8,
         metric: MetricType::L2,
     };
-    let inner = Arc::new(IvfPqIndex::new(params, 3));
+    let inner = Arc::new(IvfIndex::new(params, 3));
     let layered = LayeredIndex::new(inner);
 
     // Insert vectors at different levels

@@ -49,21 +49,19 @@ pub trait VectorIndex: Send + Sync {
     fn dimension(&self) -> usize;
 }
 
-/// IVF-PQ index parameters
+/// IVF index parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IvfPqParams {
+pub struct IvfParams {
+    /// Number of partitions (clusters)
     pub num_partitions: usize,
-    pub num_sub_vectors: usize,
-    pub pq_bits: usize,
+    /// Distance metric
     pub metric: MetricType,
 }
 
-impl Default for IvfPqParams {
+impl Default for IvfParams {
     fn default() -> Self {
         Self {
             num_partitions: 256,
-            num_sub_vectors: 16,
-            pq_bits: 8,
             metric: MetricType::L2,
         }
     }
@@ -72,9 +70,13 @@ impl Default for IvfPqParams {
 /// HNSW index parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HnswParams {
-    pub m: usize,               // Max connections per node
-    pub ef_construction: usize, // Size of dynamic candidate list during construction
-    pub ef_search: usize,       // Size of dynamic candidate list during search
+    /// Max connections per node (M parameter)
+    pub m: usize,
+    /// Size of dynamic candidate list during construction
+    pub ef_construction: usize,
+    /// Size of dynamic candidate list during search
+    pub ef_search: usize,
+    /// Distance metric
     pub metric: MetricType,
 }
 

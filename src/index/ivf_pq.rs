@@ -1,10 +1,13 @@
-//! IVF-PQ Index Implementation
+//! IVF (Inverted File) Index Implementation
 //!
-//! Inverted File with Product Quantization for large-scale vector search.
+//! Simple IVF index for vector search with K-Means clustering.
+//! Note: This is a basic IVF implementation without Product Quantization (PQ).
+//! For large-scale production use, consider using dedicated vector databases
+//! like Qdrant, Milvus, or LanceDB.
 
 use crate::compute::DistanceComputer;
 use crate::error::{Result, RustVikingError};
-use crate::index::vector::{IvfPqParams, MetricType, SearchResult, VectorIndex};
+use crate::index::vector::{IvfParams, MetricType, SearchResult, VectorIndex};
 use std::sync::RwLock;
 
 /// Per-partition data
@@ -14,9 +17,17 @@ struct PartitionData {
     levels: Vec<u8>,
 }
 
-/// IVF-PQ Index
-pub struct IvfPqIndex {
-    params: IvfPqParams,
+/// IVF Index (Inverted File Index)
+///
+/// A simple IVF index that partitions vectors using K-Means clustering.
+/// During search, only the nearest partitions are searched, providing
+/// sub-linear time complexity.
+///
+/// # Note
+/// This implementation does not include Product Quantization (PQ).
+/// For memory-efficient large-scale search, use dedicated vector databases.
+pub struct IvfIndex {
+    params: IvfParams,
     dimension: usize,
     centroids: RwLock<Vec<Vec<f32>>>,
     partitions: RwLock<Vec<PartitionData>>,
@@ -24,8 +35,13 @@ pub struct IvfPqIndex {
     trained: RwLock<bool>,
 }
 
-impl IvfPqIndex {
-    pub fn new(params: IvfPqParams, dimension: usize) -> Self {
+impl IvfIndex {
+    /// Create a new IVF index with the given parameters
+    ///
+    /// # Arguments
+    /// * `params` - IVF parameters (num_partitions, metric)
+    /// * `dimension` - Dimension of vectors to be indexed
+    pub fn new(params: IvfParams, dimension: usize) -> Self {
         let num_partitions = params.num_partitions;
         let partitions = (0..num_partitions)
             .map(|_| PartitionData {
@@ -55,6 +71,10 @@ impl IvfPqIndex {
     }
 
     /// Train centroids using K-Means clustering
+    ///
+    /// Must be called before inserting vectors for optimal performance.
+    /// If not called, vectors will be assigned to partitions based on
+    /// their similarity to zero-initialized centroids.
     pub fn train(&self, vectors: &[Vec<f32>]) -> Result<()> {
         if vectors.is_empty() {
             return Err(RustVikingError::Internal(
@@ -139,7 +159,7 @@ impl IvfPqIndex {
     }
 }
 
-impl VectorIndex for IvfPqIndex {
+impl VectorIndex for IvfIndex {
     fn insert(&self, id: u64, vector: &[f32], level: u8) -> Result<()> {
         if vector.len() != self.dimension {
             return Err(RustVikingError::InvalidDimension {
@@ -290,14 +310,12 @@ impl VectorIndex for IvfPqIndex {
 mod tests {
     use super::*;
 
-    fn create_test_index() -> IvfPqIndex {
-        let params = IvfPqParams {
+    fn create_test_index() -> IvfIndex {
+        let params = IvfParams {
             num_partitions: 4,
-            num_sub_vectors: 2,
-            pq_bits: 8,
             metric: MetricType::L2,
         };
-        IvfPqIndex::new(params, 4)
+        IvfIndex::new(params, 4)
     }
 
     #[test]

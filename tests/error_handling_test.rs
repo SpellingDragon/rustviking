@@ -5,7 +5,7 @@
 use rustviking::agfs::VikingUri;
 use rustviking::agfs::{FileSystem, WriteFlag};
 use rustviking::error::RustVikingError;
-use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType, VectorIndex};
+use rustviking::index::{IvfIndex, IvfParams, MetricType, VectorIndex};
 use rustviking::plugins::memory::MemoryPlugin;
 use rustviking::storage::config::StorageConfig;
 use rustviking::storage::{KvStore, RocksKvStore};
@@ -79,14 +79,12 @@ fn test_uri_valid_scopes() {
 // Vector Index Error Tests
 // ============================================================================
 
-fn create_test_index() -> IvfPqIndex {
-    let params = IvfPqParams {
+fn create_test_index() -> IvfIndex {
+    let params = IvfParams {
         num_partitions: 4,
-        num_sub_vectors: 2,
-        pq_bits: 8,
         metric: MetricType::L2,
     };
-    IvfPqIndex::new(params, 8)
+    IvfIndex::new(params, 8)
 }
 
 #[test]

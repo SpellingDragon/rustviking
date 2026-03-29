@@ -11,7 +11,7 @@ use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::openai::OpenAIEmbeddingProvider;
 use rustviking::embedding::types::EmbeddingConfig;
 use rustviking::embedding::EmbeddingProvider;
-use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType};
+use rustviking::index::{IvfIndex, IvfParams, MetricType};
 use rustviking::plugins::localfs::LocalFSPlugin;
 use rustviking::plugins::memory::MemoryPlugin;
 use rustviking::plugins::PluginRegistry;
@@ -119,13 +119,11 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
         }
         Commands::Index { operation } => {
             let dimension = config.vector.as_ref().map(|v| v.dimension).unwrap_or(768);
-            let params = IvfPqParams {
+            let params = IvfParams {
                 num_partitions: 256,
-                num_sub_vectors: 16,
-                pq_bits: 8,
                 metric: MetricType::L2,
             };
-            let index = IvfPqIndex::new(params, dimension);
+            let index = IvfIndex::new(params, dimension);
             handle_index_command(&index, operation, &cli.output)
         }
         Commands::Server { operation } => handle_server_command(operation),
@@ -192,7 +190,7 @@ fn handle_kv_command(
 }
 
 fn handle_index_command(
-    index: &IvfPqIndex,
+    index: &IvfIndex,
     op: IndexOperation,
     format: &OutputFormat,
 ) -> rustviking::error::Result<()> {

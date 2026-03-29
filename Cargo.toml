@@ -32,6 +32,9 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 faer = "0.20"
 half = "2"
 
+# 向量索引 (成熟库)
+hnsw_rs = "0.1"
+
 # CLI
 clap = { version = "4", features = ["derive", "env"] }
 anyhow = "1.0"

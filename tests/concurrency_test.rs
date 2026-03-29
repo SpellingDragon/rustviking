@@ -3,7 +3,7 @@
 //! Tests for thread safety and concurrent operations.
 
 use rustviking::agfs::{FileSystem, WriteFlag};
-use rustviking::index::{IvfPqIndex, IvfPqParams, MetricType, VectorIndex};
+use rustviking::index::{IvfIndex, IvfParams, MetricType, VectorIndex};
 use rustviking::plugins::memory::MemoryPlugin;
 use rustviking::storage::config::StorageConfig;
 use rustviking::storage::{KvStore, RocksKvStore};
@@ -171,14 +171,12 @@ fn test_kv_concurrent_batch_writes() {
 // Vector Index Concurrency Tests
 // ============================================================================
 
-fn create_test_index() -> Arc<IvfPqIndex> {
-    let params = IvfPqParams {
+fn create_test_index() -> Arc<IvfIndex> {
+    let params = IvfParams {
         num_partitions: 8,
-        num_sub_vectors: 4,
-        pq_bits: 8,
         metric: MetricType::L2,
     };
-    Arc::new(IvfPqIndex::new(params, 8))
+    Arc::new(IvfIndex::new(params, 8))
 }
 
 fn generate_vector(seed: u64, dim: usize) -> Vec<f32> {
