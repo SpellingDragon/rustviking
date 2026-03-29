@@ -3,6 +3,8 @@
 //! Supports any OpenAI-compatible API (OpenAI, Azure, ZhiPu/智谱, etc.)
 //! API Key can be provided via config or environment variable ZAI_API_KEY.
 
+use async_trait::async_trait;
+
 use crate::compute::normalize::l2_normalize;
 use crate::embedding::traits::EmbeddingProvider;
 use crate::embedding::types::*;
@@ -22,7 +24,7 @@ struct OpenAIProviderConfig {
     model: String,
     dimension: usize,
     max_concurrent: usize,
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 /// OpenAI API request body
@@ -97,6 +99,7 @@ impl Default for OpenAIEmbeddingProvider {
     }
 }
 
+#[async_trait]
 impl EmbeddingProvider for OpenAIEmbeddingProvider {
     fn name(&self) -> &str {
         "openai"
@@ -106,12 +109,12 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
         "0.1.0"
     }
 
-    fn initialize(&self, config: EmbeddingConfig) -> Result<()> {
+    async fn initialize(&self, config: EmbeddingConfig) -> Result<()> {
         // Resolve API key
         let api_key = Self::resolve_api_key(&config.api_key.unwrap_or_default())?;
 
         // Create HTTP client
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .map_err(|e| {
@@ -133,7 +136,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
         Ok(())
     }
 
-    fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult> {
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult> {
         let config = self
             .config
             .lock()
@@ -162,6 +165,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
+            .await
             .map_err(|e| {
                 RustVikingError::Internal(format!("Embedding API request failed: {}", e))
             })?;
@@ -171,6 +175,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
             let status = response.status();
             let error_text = response
                 .text()
+                .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(RustVikingError::Internal(format!(
                 "Embedding API request failed with status {}: {}",
@@ -179,7 +184,7 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
         }
 
         // Parse response
-        let embedding_response: OpenAIEmbeddingResponse = response.json().map_err(|e| {
+        let embedding_response: OpenAIEmbeddingResponse = response.json().await.map_err(|e| {
             RustVikingError::Internal(format!("Failed to parse embedding response: {}", e))
         })?;
 
@@ -207,13 +212,17 @@ impl EmbeddingProvider for OpenAIEmbeddingProvider {
         })
     }
 
-    fn embed_batch(
+    async fn embed_batch(
         &self,
         requests: Vec<EmbeddingRequest>,
         _max_concurrent: usize,
     ) -> Result<Vec<EmbeddingResult>> {
-        // Sequential processing for now (sync implementation)
-        requests.into_iter().map(|req| self.embed(req)).collect()
+        // Sequential processing for now
+        let mut results = Vec::new();
+        for req in requests {
+            results.push(self.embed(req).await?);
+        }
+        Ok(results)
     }
 
     fn default_dimension(&self) -> usize {
@@ -243,7 +252,7 @@ impl Clone for OpenAIProviderConfig {
             model: self.model.clone(),
             dimension: self.dimension,
             max_concurrent: self.max_concurrent,
-            client: reqwest::blocking::Client::builder()
+            client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(60))
                 .build()
                 .expect("Failed to clone HTTP client"),
@@ -255,8 +264,8 @@ impl Clone for OpenAIProviderConfig {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_openai_provider_default() {
+    #[tokio::test]
+    async fn test_openai_provider_default() {
         let provider = OpenAIEmbeddingProvider::default();
         assert_eq!(provider.name(), "openai");
         assert_eq!(provider.version(), "0.1.0");
@@ -270,8 +279,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_openai_provider_new() {
+    #[tokio::test]
+    async fn test_openai_provider_new() {
         let provider = OpenAIEmbeddingProvider::new();
         assert_eq!(provider.name(), "openai");
         // Default dimension before initialization
@@ -358,8 +367,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_openai_provider_initialize() {
+    #[tokio::test]
+    async fn test_openai_provider_initialize() {
         let provider = OpenAIEmbeddingProvider::new();
         let config = EmbeddingConfig {
             api_base: "https://api.openai.com/v1".to_string(),
@@ -369,19 +378,19 @@ mod tests {
             dimension: 1536,
             max_concurrent: 10,
         };
-        assert!(provider.initialize(config).is_ok());
+        assert!(provider.initialize(config).await.is_ok());
         assert_eq!(provider.default_dimension(), 1536);
     }
 
-    #[test]
-    fn test_openai_provider_not_initialized() {
+    #[tokio::test]
+    async fn test_openai_provider_not_initialized() {
         let provider = OpenAIEmbeddingProvider::new();
         let request = EmbeddingRequest {
             texts: vec!["hello".to_string()],
             model: None,
             normalize: false,
         };
-        let result = provider.embed(request);
+        let result = provider.embed(request).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not initialized"));
     }

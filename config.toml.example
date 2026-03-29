@@ -38,9 +38,10 @@ path = "./data/rustviking/vector_store"
 
 # Qdrant 配置（当 plugin = "qdrant" 时使用）
 # [vector_store.qdrant]
-# url = "http://localhost:6333"
+# url = "http://localhost:6334"
 # collection = "rustviking"
 # timeout_ms = 5000
+# api_key = ""  # Optional: Qdrant Cloud API key
 
 # Embedding 插件配置
 [embedding]

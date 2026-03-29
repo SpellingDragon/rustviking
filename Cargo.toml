@@ -62,6 +62,13 @@ rayon = "1.10"
 # HTTP 客户端
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 
+# 异步基础设施
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+
+# Qdrant 向量数据库客户端
+qdrant-client = "1.17"
+
 [dev-dependencies]
 tempfile = "3"
 criterion = { version = "0.5", features = ["html_reports"] }

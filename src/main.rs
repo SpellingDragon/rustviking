@@ -17,7 +17,8 @@ use rustviking::vector_store::memory::MemoryVectorStore;
 use rustviking::vector_store::rocks::RocksDBVectorStore;
 use rustviking::vikingfs::VikingFS;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -28,7 +29,7 @@ fn main() {
 
     let cli = Cli::parse();
 
-    if let Err(e) = run(cli) {
+    if let Err(e) = run(cli).await {
         let error_output = serde_json::json!({
             "status": "error",
             "message": e.to_string(),
@@ -41,7 +42,7 @@ fn main() {
     }
 }
 
-fn run(cli: Cli) -> rustviking::error::Result<()> {
+async fn run(cli: Cli) -> rustviking::error::Result<()> {
     // Load config
     let config = Config::load_or_default(&cli.config);
 
@@ -92,7 +93,7 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
                 dimension: openai_config.dimension,
                 max_concurrent: openai_config.max_concurrent,
             };
-            provider.initialize(embedding_config)?;
+            provider.initialize(embedding_config).await?;
         }
         Box::new(provider) as Box<dyn rustviking::embedding::EmbeddingProvider>
     } else {
@@ -129,48 +130,48 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
 
         // VikingFS 语义层命令
         Commands::Read { uri, level } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_read(&vikingfs, &uri, level.as_deref(), &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_read(&vikingfs, &uri, level.as_deref(), &cli.output).await
         }
         Commands::Write {
             uri,
             data,
             auto_summary,
         } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_write(&vikingfs, &uri, &data, auto_summary, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_write(&vikingfs, &uri, &data, auto_summary, &cli.output).await
         }
         Commands::Mkdir { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_mkdir(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_mkdir(&vikingfs, &uri, &cli.output).await
         }
         Commands::Rm { uri, recursive } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_rm(&vikingfs, &uri, recursive, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_rm(&vikingfs, &uri, recursive, &cli.output).await
         }
         Commands::Mv { from, to } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_mv(&vikingfs, &from, &to, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_mv(&vikingfs, &from, &to, &cli.output).await
         }
         Commands::Ls { uri, recursive } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_ls(&vikingfs, &uri, recursive, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_ls(&vikingfs, &uri, recursive, &cli.output).await
         }
         Commands::Stat { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_stat(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_stat(&vikingfs, &uri, &cli.output).await
         }
         Commands::Abstract { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_abstract(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_abstract(&vikingfs, &uri, &cli.output).await
         }
         Commands::Overview { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_overview(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_overview(&vikingfs, &uri, &cli.output).await
         }
         Commands::Detail { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_detail(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_detail(&vikingfs, &uri, &cli.output).await
         }
         Commands::Find {
             query,
@@ -178,7 +179,7 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
             k,
             level,
         } => {
-            let vikingfs = VikingFS::from_config(&config)?;
+            let vikingfs = VikingFS::from_config(&config).await?;
             viking_commands::handle_find(
                 &vikingfs,
                 &query,
@@ -186,11 +187,11 @@ fn run(cli: Cli) -> rustviking::error::Result<()> {
                 k,
                 level.as_deref(),
                 &cli.output,
-            )
+            ).await
         }
         Commands::Commit { uri } => {
-            let vikingfs = VikingFS::from_config(&config)?;
-            viking_commands::handle_commit(&vikingfs, &uri, &cli.output)
+            let vikingfs = VikingFS::from_config(&config).await?;
+            viking_commands::handle_commit(&vikingfs, &uri, &cli.output).await
         }
     }
 }

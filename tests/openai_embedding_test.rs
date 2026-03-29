@@ -26,8 +26,8 @@ fn test_openai_provider_new() {
     assert_eq!(provider.default_dimension(), 1536);
 }
 
-#[test]
-fn test_openai_provider_initialize_with_direct_api_key() {
+#[tokio::test]
+async fn test_openai_provider_initialize_with_direct_api_key() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -39,12 +39,12 @@ fn test_openai_provider_initialize_with_direct_api_key() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
     assert_eq!(provider.default_dimension(), 1536);
 }
 
-#[test]
-fn test_openai_provider_initialize_with_different_dimensions() {
+#[tokio::test]
+async fn test_openai_provider_initialize_with_different_dimensions() {
     let dimensions = vec![256, 512, 768, 1024, 1536, 2048];
 
     for dim in dimensions {
@@ -58,13 +58,13 @@ fn test_openai_provider_initialize_with_different_dimensions() {
             max_concurrent: 10,
         };
 
-        assert!(provider.initialize(config).is_ok());
+        assert!(provider.initialize(config).await.is_ok());
         assert_eq!(provider.default_dimension(), dim);
     }
 }
 
-#[test]
-fn test_openai_provider_initialize_with_different_models() {
+#[tokio::test]
+async fn test_openai_provider_initialize_with_different_models() {
     let models = vec![
         "text-embedding-3-small",
         "text-embedding-3-large",
@@ -82,12 +82,12 @@ fn test_openai_provider_initialize_with_different_models() {
             max_concurrent: 10,
         };
 
-        assert!(provider.initialize(config).is_ok());
+        assert!(provider.initialize(config).await.is_ok());
     }
 }
 
-#[test]
-fn test_openai_provider_initialize_with_custom_api_base() {
+#[tokio::test]
+async fn test_openai_provider_initialize_with_custom_api_base() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -99,15 +99,15 @@ fn test_openai_provider_initialize_with_custom_api_base() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
 // ============================================================================
 // API Key Environment Variable Tests
 // ============================================================================
 
-#[test]
-fn test_resolve_api_key_direct() {
+#[tokio::test]
+async fn test_resolve_api_key_direct() {
     // Test direct API key (not env: format)
     let provider = OpenAIEmbeddingProvider::new();
     let config = EmbeddingConfig {
@@ -119,11 +119,11 @@ fn test_resolve_api_key_direct() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
-#[test]
-fn test_resolve_api_key_from_env_format() {
+#[tokio::test]
+async fn test_resolve_api_key_from_env_format() {
     // Set a test environment variable
     std::env::set_var("TEST_OPENAI_API_KEY", "sk-from-env-456");
 
@@ -137,14 +137,14 @@ fn test_resolve_api_key_from_env_format() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 
     // Clean up
     std::env::remove_var("TEST_OPENAI_API_KEY");
 }
 
-#[test]
-fn test_resolve_api_key_from_env_format_missing() {
+#[tokio::test]
+async fn test_resolve_api_key_from_env_format_missing() {
     // Ensure the env var is not set
     std::env::remove_var("NONEXISTENT_API_KEY_VAR");
 
@@ -158,12 +158,12 @@ fn test_resolve_api_key_from_env_format_missing() {
         max_concurrent: 10,
     };
 
-    let result = provider.initialize(config);
+    let result = provider.initialize(config).await;
     assert!(result.is_err());
 }
 
-#[test]
-fn test_resolve_api_key_empty_with_zai_env() {
+#[tokio::test]
+async fn test_resolve_api_key_empty_with_zai_env() {
     // Save current env var if exists
     let original = std::env::var("ZAI_API_KEY").ok();
 
@@ -180,7 +180,7 @@ fn test_resolve_api_key_empty_with_zai_env() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 
     // Restore original env var
     match original {
@@ -189,8 +189,8 @@ fn test_resolve_api_key_empty_with_zai_env() {
     }
 }
 
-#[test]
-fn test_resolve_api_key_empty_with_openai_env() {
+#[tokio::test]
+async fn test_resolve_api_key_empty_with_openai_env() {
     // Save current env vars
     let original_zai = std::env::var("ZAI_API_KEY").ok();
     let original_openai = std::env::var("OPENAI_API_KEY").ok();
@@ -210,7 +210,7 @@ fn test_resolve_api_key_empty_with_openai_env() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 
     if let Some(val) = original_zai {
         std::env::set_var("ZAI_API_KEY", val);
@@ -221,8 +221,8 @@ fn test_resolve_api_key_empty_with_openai_env() {
     }
 }
 
-#[test]
-fn test_resolve_api_key_empty_no_env() {
+#[tokio::test]
+async fn test_resolve_api_key_empty_no_env() {
     // Save current env vars
     let original_zai = std::env::var("ZAI_API_KEY").ok();
     let original_openai = std::env::var("OPENAI_API_KEY").ok();
@@ -241,7 +241,7 @@ fn test_resolve_api_key_empty_no_env() {
         max_concurrent: 10,
     };
 
-    let result = provider.initialize(config);
+    let result = provider.initialize(config).await;
     assert!(result.is_err());
 
     // Restore original env vars
@@ -253,8 +253,8 @@ fn test_resolve_api_key_empty_no_env() {
     }
 }
 
-#[test]
-fn test_resolve_api_key_none_config() {
+#[tokio::test]
+async fn test_resolve_api_key_none_config() {
     // Save current env vars
     let original_zai = std::env::var("ZAI_API_KEY").ok();
     let original_openai = std::env::var("OPENAI_API_KEY").ok();
@@ -273,7 +273,7 @@ fn test_resolve_api_key_none_config() {
         max_concurrent: 10,
     };
 
-    let result = provider.initialize(config);
+    let result = provider.initialize(config).await;
     assert!(result.is_err());
 
     // Restore original env vars
@@ -300,8 +300,8 @@ fn test_supported_models() {
     assert!(models.contains(&"text-embedding-ada-002"));
 }
 
-#[test]
-fn test_supported_models_after_init() {
+#[tokio::test]
+async fn test_supported_models_after_init() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -313,7 +313,7 @@ fn test_supported_models_after_init() {
         max_concurrent: 10,
     };
 
-    provider.initialize(config).unwrap();
+    provider.initialize(config).await.unwrap();
 
     // Supported models should remain the same after initialization
     let models = provider.supported_models();
@@ -331,8 +331,8 @@ fn test_default_dimension_before_init() {
     assert_eq!(provider.default_dimension(), 1536);
 }
 
-#[test]
-fn test_default_dimension_after_init() {
+#[tokio::test]
+async fn test_default_dimension_after_init() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -344,12 +344,12 @@ fn test_default_dimension_after_init() {
         max_concurrent: 10,
     };
 
-    provider.initialize(config).unwrap();
+    provider.initialize(config).await.unwrap();
     assert_eq!(provider.default_dimension(), 1536);
 }
 
-#[test]
-fn test_default_dimension_different_values() {
+#[tokio::test]
+async fn test_default_dimension_different_values() {
     let test_cases = vec![
         (256, "text-embedding-3-small"),
         (512, "text-embedding-3-small"),
@@ -370,7 +370,7 @@ fn test_default_dimension_different_values() {
             max_concurrent: 10,
         };
 
-        provider.initialize(config).unwrap();
+        provider.initialize(config).await.unwrap();
         assert_eq!(provider.default_dimension(), dim);
     }
 }
@@ -379,8 +379,8 @@ fn test_default_dimension_different_values() {
 // Not Initialized Error Tests
 // ============================================================================
 
-#[test]
-fn test_embed_without_initialize() {
+#[tokio::test]
+async fn test_embed_without_initialize() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let request = EmbeddingRequest {
@@ -389,14 +389,14 @@ fn test_embed_without_initialize() {
         normalize: false,
     };
 
-    let result = provider.embed(request);
+    let result = provider.embed(request).await;
     assert!(result.is_err());
     let error_msg = result.unwrap_err().to_string();
     assert!(error_msg.contains("not initialized") || error_msg.contains("OpenAI"));
 }
 
-#[test]
-fn test_embed_batch_without_initialize() {
+#[tokio::test]
+async fn test_embed_batch_without_initialize() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let requests = vec![EmbeddingRequest {
@@ -405,7 +405,7 @@ fn test_embed_batch_without_initialize() {
         normalize: false,
     }];
 
-    let results = provider.embed_batch(requests, 10);
+    let results = provider.embed_batch(requests, 10).await;
     assert!(results.is_err());
 }
 
@@ -413,8 +413,8 @@ fn test_embed_batch_without_initialize() {
 // Azure OpenAI Configuration Tests
 // ============================================================================
 
-#[test]
-fn test_azure_openai_configuration() {
+#[tokio::test]
+async fn test_azure_openai_configuration() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -427,11 +427,11 @@ fn test_azure_openai_configuration() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
-#[test]
-fn test_custom_openai_compatible_api() {
+#[tokio::test]
+async fn test_custom_openai_compatible_api() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -443,15 +443,15 @@ fn test_custom_openai_compatible_api() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
 // ============================================================================
 // Concurrent Configuration Tests
 // ============================================================================
 
-#[test]
-fn test_max_concurrent_configuration() {
+#[tokio::test]
+async fn test_max_concurrent_configuration() {
     let concurrency_levels = vec![1, 5, 10, 20, 50, 100];
 
     for max_concurrent in concurrency_levels {
@@ -466,7 +466,7 @@ fn test_max_concurrent_configuration() {
             max_concurrent,
         };
 
-        assert!(provider.initialize(config).is_ok());
+        assert!(provider.initialize(config).await.is_ok());
     }
 }
 
@@ -486,8 +486,8 @@ fn test_provider_version() {
     assert_eq!(provider.version(), "0.1.0");
 }
 
-#[test]
-fn test_provider_info_after_init() {
+#[tokio::test]
+async fn test_provider_info_after_init() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -499,7 +499,7 @@ fn test_provider_info_after_init() {
         max_concurrent: 10,
     };
 
-    provider.initialize(config).unwrap();
+    provider.initialize(config).await.unwrap();
 
     assert_eq!(provider.name(), "openai");
     assert_eq!(provider.version(), "0.1.0");
@@ -509,8 +509,8 @@ fn test_provider_info_after_init() {
 // Edge Cases
 // ============================================================================
 
-#[test]
-fn test_initialize_with_empty_api_base() {
+#[tokio::test]
+async fn test_initialize_with_empty_api_base() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -523,11 +523,11 @@ fn test_initialize_with_empty_api_base() {
     };
 
     // Empty api_base should still initialize (though would fail on actual request)
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
-#[test]
-fn test_initialize_with_special_chars_in_api_key() {
+#[tokio::test]
+async fn test_initialize_with_special_chars_in_api_key() {
     let provider = OpenAIEmbeddingProvider::new();
 
     let config = EmbeddingConfig {
@@ -539,11 +539,11 @@ fn test_initialize_with_special_chars_in_api_key() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
 }
 
-#[test]
-fn test_reinitialize_with_different_config() {
+#[tokio::test]
+async fn test_reinitialize_with_different_config() {
     let provider = OpenAIEmbeddingProvider::new();
 
     // First initialization
@@ -556,7 +556,7 @@ fn test_reinitialize_with_different_config() {
         max_concurrent: 10,
     };
 
-    provider.initialize(config1).unwrap();
+    provider.initialize(config1).await.unwrap();
     assert_eq!(provider.default_dimension(), 1536);
 
     // Re-initialization with different dimension
@@ -569,6 +569,6 @@ fn test_reinitialize_with_different_config() {
         max_concurrent: 20,
     };
 
-    provider.initialize(config2).unwrap();
+    provider.initialize(config2).await.unwrap();
     assert_eq!(provider.default_dimension(), 3072);
 }

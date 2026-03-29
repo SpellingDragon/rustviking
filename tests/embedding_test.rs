@@ -9,8 +9,8 @@ use rustviking::embedding::*;
 // Basic Embedding Tests
 // ============================================================================
 
-#[test]
-fn test_mock_embed_basic() {
+#[tokio::test]
+async fn test_mock_embed_basic() {
     let provider = MockEmbeddingProvider::new(128);
 
     let request = EmbeddingRequest {
@@ -19,15 +19,15 @@ fn test_mock_embed_basic() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
 
     assert_eq!(result.embeddings.len(), 1);
     assert_eq!(result.dimension, 128);
     assert_eq!(result.embeddings[0].len(), 128);
 }
 
-#[test]
-fn test_mock_embed_deterministic() {
+#[tokio::test]
+async fn test_mock_embed_deterministic() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -36,15 +36,15 @@ fn test_mock_embed_deterministic() {
         normalize: false,
     };
 
-    let result1 = provider.embed(request.clone()).unwrap();
-    let result2 = provider.embed(request).unwrap();
+    let result1 = provider.embed(request.clone()).await.unwrap();
+    let result2 = provider.embed(request).await.unwrap();
 
     // Same text should produce identical embeddings
     assert_eq!(result1.embeddings[0], result2.embeddings[0]);
 }
 
-#[test]
-fn test_mock_embed_different_texts() {
+#[tokio::test]
+async fn test_mock_embed_different_texts() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request1 = EmbeddingRequest {
@@ -59,8 +59,8 @@ fn test_mock_embed_different_texts() {
         normalize: false,
     };
 
-    let result1 = provider.embed(request1).unwrap();
-    let result2 = provider.embed(request2).unwrap();
+    let result1 = provider.embed(request1).await.unwrap();
+    let result2 = provider.embed(request2).await.unwrap();
 
     // Different texts should produce different embeddings
     assert_ne!(result1.embeddings[0], result2.embeddings[0]);
@@ -70,8 +70,8 @@ fn test_mock_embed_different_texts() {
 // Batch Embedding Tests
 // ============================================================================
 
-#[test]
-fn test_mock_embed_batch() {
+#[tokio::test]
+async fn test_mock_embed_batch() {
     let provider = MockEmbeddingProvider::new(32);
 
     let requests = vec![
@@ -87,7 +87,7 @@ fn test_mock_embed_batch() {
         },
     ];
 
-    let results = provider.embed_batch(requests, 2).unwrap();
+    let results = provider.embed_batch(requests, 2).await.unwrap();
 
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].embeddings.len(), 2);
@@ -102,8 +102,8 @@ fn test_mock_embed_batch() {
     }
 }
 
-#[test]
-fn test_mock_embed_multiple_texts_in_single_request() {
+#[tokio::test]
+async fn test_mock_embed_multiple_texts_in_single_request() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -116,7 +116,7 @@ fn test_mock_embed_multiple_texts_in_single_request() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
 
     assert_eq!(result.embeddings.len(), 3);
 
@@ -129,8 +129,8 @@ fn test_mock_embed_multiple_texts_in_single_request() {
 // Normalization Tests
 // ============================================================================
 
-#[test]
-fn test_mock_embed_normalize() {
+#[tokio::test]
+async fn test_mock_embed_normalize() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -139,7 +139,7 @@ fn test_mock_embed_normalize() {
         normalize: true,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     let vector = &result.embeddings[0];
 
     // L2 norm should be approximately 1.0
@@ -151,8 +151,8 @@ fn test_mock_embed_normalize() {
     );
 }
 
-#[test]
-fn test_mock_embed_no_normalize() {
+#[tokio::test]
+async fn test_mock_embed_no_normalize() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -161,7 +161,7 @@ fn test_mock_embed_no_normalize() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     let vector = &result.embeddings[0];
 
     // L2 norm should NOT be 1.0 (raw random values)
@@ -181,8 +181,8 @@ fn test_mock_default_dimension() {
     assert_eq!(provider.default_dimension(), 1024);
 }
 
-#[test]
-fn test_mock_custom_dimension() {
+#[tokio::test]
+async fn test_mock_custom_dimension() {
     let provider = MockEmbeddingProvider::new(512);
     assert_eq!(provider.default_dimension(), 512);
 
@@ -192,13 +192,13 @@ fn test_mock_custom_dimension() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.dimension, 512);
     assert_eq!(result.embeddings[0].len(), 512);
 }
 
-#[test]
-fn test_mock_various_dimensions() {
+#[tokio::test]
+async fn test_mock_various_dimensions() {
     let dimensions = vec![64, 128, 256, 512, 768, 1024, 1536];
 
     for dim in dimensions {
@@ -211,7 +211,7 @@ fn test_mock_various_dimensions() {
             normalize: false,
         };
 
-        let result = provider.embed(request).unwrap();
+        let result = provider.embed(request).await.unwrap();
         assert_eq!(result.dimension, dim);
     }
 }
@@ -241,8 +241,8 @@ fn test_mock_provider_info() {
 // Configuration Tests
 // ============================================================================
 
-#[test]
-fn test_mock_initialize() {
+#[tokio::test]
+async fn test_mock_initialize() {
     let provider = MockEmbeddingProvider::new(512);
 
     let config = EmbeddingConfig {
@@ -254,7 +254,7 @@ fn test_mock_initialize() {
         max_concurrent: 10,
     };
 
-    provider.initialize(config).unwrap();
+    provider.initialize(config).await.unwrap();
 
     // Dimension should be updated from config
     assert_eq!(provider.default_dimension(), 768);
@@ -276,8 +276,8 @@ fn test_embedding_config_default() {
 // Result Structure Tests
 // ============================================================================
 
-#[test]
-fn test_embedding_result_model() {
+#[tokio::test]
+async fn test_embedding_result_model() {
     let provider = MockEmbeddingProvider::new(64);
 
     // Without specifying model
@@ -286,7 +286,7 @@ fn test_embedding_result_model() {
         model: None,
         normalize: false,
     };
-    let result1 = provider.embed(request1).unwrap();
+    let result1 = provider.embed(request1).await.unwrap();
     assert_eq!(result1.model, "mock-embedding-v1");
 
     // With custom model
@@ -295,12 +295,12 @@ fn test_embedding_result_model() {
         model: Some("custom-model".to_string()),
         normalize: false,
     };
-    let result2 = provider.embed(request2).unwrap();
+    let result2 = provider.embed(request2).await.unwrap();
     assert_eq!(result2.model, "custom-model");
 }
 
-#[test]
-fn test_embedding_result_token_count() {
+#[tokio::test]
+async fn test_embedding_result_token_count() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -309,7 +309,7 @@ fn test_embedding_result_token_count() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
 
     // Mock provider doesn't track token count
     assert!(result.token_count.is_none());
@@ -319,8 +319,8 @@ fn test_embedding_result_token_count() {
 // Edge Cases
 // ============================================================================
 
-#[test]
-fn test_embed_empty_texts() {
+#[tokio::test]
+async fn test_embed_empty_texts() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -329,12 +329,12 @@ fn test_embed_empty_texts() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.embeddings.len(), 0);
 }
 
-#[test]
-fn test_embed_empty_string() {
+#[tokio::test]
+async fn test_embed_empty_string() {
     let provider = MockEmbeddingProvider::new(64);
 
     let request = EmbeddingRequest {
@@ -343,15 +343,15 @@ fn test_embed_empty_string() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.embeddings.len(), 1);
 
     // Empty string should still produce a valid embedding
     assert_eq!(result.embeddings[0].len(), 64);
 }
 
-#[test]
-fn test_embed_very_long_text() {
+#[tokio::test]
+async fn test_embed_very_long_text() {
     let provider = MockEmbeddingProvider::new(128);
 
     let long_text = "a".repeat(10000);
@@ -361,13 +361,13 @@ fn test_embed_very_long_text() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.embeddings.len(), 1);
     assert_eq!(result.embeddings[0].len(), 128);
 }
 
-#[test]
-fn test_embed_special_characters() {
+#[tokio::test]
+async fn test_embed_special_characters() {
     let provider = MockEmbeddingProvider::new(64);
 
     let texts = vec![
@@ -383,7 +383,7 @@ fn test_embed_special_characters() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.embeddings.len(), 4);
 
     // Each embedding should have correct dimension
@@ -396,8 +396,8 @@ fn test_embed_special_characters() {
 // Embedding Consistency Tests
 // ============================================================================
 
-#[test]
-fn test_embedding_consistency_across_instances() {
+#[tokio::test]
+async fn test_embedding_consistency_across_instances() {
     let provider1 = MockEmbeddingProvider::new(64);
     let provider2 = MockEmbeddingProvider::new(64);
 
@@ -407,15 +407,15 @@ fn test_embedding_consistency_across_instances() {
         normalize: false,
     };
 
-    let result1 = provider1.embed(request.clone()).unwrap();
-    let result2 = provider2.embed(request).unwrap();
+    let result1 = provider1.embed(request.clone()).await.unwrap();
+    let result2 = provider2.embed(request).await.unwrap();
 
     // Different provider instances should produce same result for same text
     assert_eq!(result1.embeddings[0], result2.embeddings[0]);
 }
 
-#[test]
-fn test_different_dimensions_different_results() {
+#[tokio::test]
+async fn test_different_dimensions_different_results() {
     let provider_64 = MockEmbeddingProvider::new(64);
     let provider_128 = MockEmbeddingProvider::new(128);
 
@@ -425,7 +425,7 @@ fn test_different_dimensions_different_results() {
         normalize: false,
     };
 
-    let result_64 = provider_64.embed(request_64).unwrap();
+    let result_64 = provider_64.embed(request_64).await.unwrap();
 
     // Same text with different dimensions should produce different length vectors
     let request_128 = EmbeddingRequest {
@@ -433,7 +433,7 @@ fn test_different_dimensions_different_results() {
         model: None,
         normalize: false,
     };
-    let result_128 = provider_128.embed(request_128).unwrap();
+    let result_128 = provider_128.embed(request_128).await.unwrap();
 
     assert_eq!(result_64.embeddings[0].len(), 64);
     assert_eq!(result_128.embeddings[0].len(), 128);
@@ -443,16 +443,16 @@ fn test_different_dimensions_different_results() {
 // Batch Processing Tests
 // ============================================================================
 
-#[test]
-fn test_batch_empty_requests() {
+#[tokio::test]
+async fn test_batch_empty_requests() {
     let provider = MockEmbeddingProvider::new(64);
 
-    let results = provider.embed_batch(vec![], 10).unwrap();
+    let results = provider.embed_batch(vec![], 10).await.unwrap();
     assert_eq!(results.len(), 0);
 }
 
-#[test]
-fn test_batch_large_number_of_requests() {
+#[tokio::test]
+async fn test_batch_large_number_of_requests() {
     let provider = MockEmbeddingProvider::new(32);
 
     let requests: Vec<EmbeddingRequest> = (0..50)
@@ -463,6 +463,6 @@ fn test_batch_large_number_of_requests() {
         })
         .collect();
 
-    let results = provider.embed_batch(requests, 10).unwrap();
+    let results = provider.embed_batch(requests, 10).await.unwrap();
     assert_eq!(results.len(), 50);
 }

@@ -16,7 +16,8 @@ use rustviking::vector_store::traits::VectorStore;
 use rustviking::vector_store::types::{IndexParams, VectorPoint};
 use serde_json::json;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("========================================");
     println!("智谱 API 端到端验证测试");
     println!("========================================\n");
@@ -42,7 +43,7 @@ fn main() {
         max_concurrent: 10,
     };
 
-    match provider.initialize(config) {
+    match provider.initialize(config).await {
         Ok(()) => println!("✅ Embedding Provider 初始化成功"),
         Err(e) => {
             println!("❌ Embedding Provider 初始化失败: {}", e);
@@ -56,7 +57,7 @@ fn main() {
     let mut collection_name = "test_collection";
     let dimension = 2048usize;
 
-    match store.create_collection(collection_name, dimension, IndexParams::default()) {
+    match store.create_collection(collection_name, dimension, IndexParams::default()).await {
         Ok(()) => println!(
             "✅ 集合 '{}' 创建成功 (dimension={})",
             collection_name, dimension
@@ -89,7 +90,7 @@ fn main() {
         normalize: true, // 归一化向量以便进行余弦相似度搜索
     };
 
-    let result = match provider.embed(request) {
+    let result = match provider.embed(request).await {
         Ok(r) => r,
         Err(e) => {
             println!("❌ Embedding API 调用失败: {}", e);
@@ -119,7 +120,7 @@ fn main() {
 
         // 重新创建集合
         let new_collection = "test_collection_v2";
-        match store.create_collection(new_collection, actual_dimension, IndexParams::default()) {
+        match store.create_collection(new_collection, actual_dimension, IndexParams::default()).await {
             Ok(()) => {
                 collection_name = new_collection;
                 println!(
@@ -140,7 +141,7 @@ fn main() {
         .embeddings
         .iter()
         .enumerate()
-        .map(|(i, embedding)| VectorPoint {
+        .map(|(i, embedding): (usize, &Vec<f32>)| VectorPoint {
             id: format!("doc_{}", i),
             vector: embedding.clone(),
             sparse_vector: None,
@@ -153,7 +154,7 @@ fn main() {
         })
         .collect();
 
-    match store.upsert(collection_name, points) {
+    match store.upsert(collection_name, points).await {
         Ok(()) => println!("✅ 成功插入 {} 个向量", texts.len()),
         Err(e) => {
             println!("❌ 向量插入失败: {}", e);
@@ -172,7 +173,7 @@ fn main() {
         normalize: true,
     };
 
-    let query_result = match provider.embed(query_request) {
+    let query_result = match provider.embed(query_request).await {
         Ok(r) => r,
         Err(e) => {
             println!("❌ 查询向量生成失败: {}", e);
@@ -183,7 +184,7 @@ fn main() {
     let query_vector = &query_result.embeddings[0];
     println!("   查询向量维度: {}", query_vector.len());
 
-    let search_results = match store.search(collection_name, query_vector, 5, None) {
+    let search_results = match store.search(collection_name, query_vector, 5, None).await {
         Ok(results) => results,
         Err(e) => {
             println!("❌ 搜索失败: {}", e);
@@ -200,7 +201,7 @@ fn main() {
         let doc_idx = result
             .id
             .strip_prefix("doc_")
-            .and_then(|s| s.parse::<usize>().ok())
+            .and_then(|s: &str| s.parse::<usize>().ok())
             .unwrap_or(0);
         let original_text: &str = texts.get(doc_idx).map(|s| s as &str).unwrap_or("?");
 
@@ -220,7 +221,7 @@ fn main() {
         let doc_idx = top_result
             .id
             .strip_prefix("doc_")
-            .and_then(|s| s.parse::<usize>().ok())
+            .and_then(|s: &str| s.parse::<usize>().ok())
             .unwrap_or(0);
 
         // 检查最相关的结果是否与向量数据库相关

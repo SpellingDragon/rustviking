@@ -15,7 +15,7 @@ use rustviking::vector_store::types::{Filter, IndexParams};
 use serde_json::json;
 
 // Helper to create a configured VectorSyncManager
-fn create_test_manager() -> VectorSyncManager {
+async fn create_test_manager() -> VectorSyncManager {
     let store = Arc::new(MemoryVectorStore::new());
     let provider = Arc::new(MockEmbeddingProvider::new(128));
 
@@ -29,11 +29,13 @@ fn create_test_manager() -> VectorSyncManager {
             dimension: 128,
             max_concurrent: 1,
         })
+        .await
         .unwrap();
 
     // Create collection
     store
         .create_collection("test", 128, IndexParams::default())
+        .await
         .unwrap();
 
     VectorSyncManager::new(store, provider, "test".to_string())
@@ -43,9 +45,9 @@ fn create_test_manager() -> VectorSyncManager {
 // File Lifecycle Tests
 // ============================================================================
 
-#[test]
-fn test_file_created_and_search() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_created_and_search() {
+    let manager = create_test_manager().await;
 
     // Create a file
     manager
@@ -57,10 +59,11 @@ fn test_file_created_and_search() {
             Some("README"),
             Some("Documentation file"),
         )
+        .await
         .unwrap();
 
     // Search for similar content
-    let results = manager.search("documentation", 10, None).unwrap();
+    let results = manager.search("documentation", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.uri, "/docs/readme");
     assert_eq!(results[0].metadata.context_type, "resource");
@@ -71,9 +74,9 @@ fn test_file_created_and_search() {
     );
 }
 
-#[test]
-fn test_file_created_with_all_metadata() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_created_with_all_metadata() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created(
@@ -84,9 +87,10 @@ fn test_file_created_with_all_metadata() {
             Some("My Skill"),
             Some("A useful skill"),
         )
+        .await
         .unwrap();
 
-    let results = manager.search("skill implementation", 10, None).unwrap();
+    let results = manager.search("skill implementation", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 
     let metadata = &results[0].metadata;
@@ -100,9 +104,9 @@ fn test_file_created_with_all_metadata() {
     assert!(!metadata.created_at.is_empty());
 }
 
-#[test]
-fn test_file_updated() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_updated() {
+    let manager = create_test_manager().await;
 
     // Create a file
     manager
@@ -114,10 +118,11 @@ fn test_file_updated() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     // Verify file exists
-    let results = manager.search("unique phrase", 10, None).unwrap();
+    let results = manager.search("unique phrase", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/file");
 
@@ -131,17 +136,18 @@ fn test_file_updated() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     // Verify file still exists after update
-    let results = manager.search("xyz123", 10, None).unwrap();
+    let results = manager.search("xyz123", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/file");
 }
 
-#[test]
-fn test_file_updated_preserves_metadata() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_updated_preserves_metadata() {
+    let manager = create_test_manager().await;
 
     // Create a file with metadata
     manager
@@ -153,6 +159,7 @@ fn test_file_updated_preserves_metadata() {
             Some("User Guide"),
             Some("Guide description"),
         )
+        .await
         .unwrap();
 
     // Update with new content but same metadata
@@ -165,10 +172,11 @@ fn test_file_updated_preserves_metadata() {
             Some("User Guide"),
             Some("Guide description"),
         )
+        .await
         .unwrap();
 
     // Verify metadata is preserved
-    let results = manager.search("guide", 10, None).unwrap();
+    let results = manager.search("guide", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.name, Some("User Guide".to_string()));
     assert_eq!(
@@ -177,9 +185,9 @@ fn test_file_updated_preserves_metadata() {
     );
 }
 
-#[test]
-fn test_file_moved() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_moved() {
+    let manager = create_test_manager().await;
 
     // Create a file
     manager
@@ -191,13 +199,14 @@ fn test_file_moved() {
             Some("test file"),
             None,
         )
+        .await
         .unwrap();
 
     // Move the file
-    manager.on_file_moved("/old/path", "/new/path").unwrap();
+    manager.on_file_moved("/old/path", "/new/path").await.unwrap();
 
     // Verify the URI was updated
-    let results = manager.search("test content", 10, None).unwrap();
+    let results = manager.search("test content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.uri, "/new/path/file");
     assert_eq!(
@@ -206,9 +215,9 @@ fn test_file_moved() {
     );
 }
 
-#[test]
-fn test_file_moved_nested() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_moved_nested() {
+    let manager = create_test_manager().await;
 
     // Create multiple files in nested structure
     manager
@@ -220,6 +229,7 @@ fn test_file_moved_nested() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -230,19 +240,22 @@ fn test_file_moved_nested() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created("/a/file3", Some("/a"), "content 3", "resource", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created("/x/file4", Some("/x"), "content 4", "resource", None, None)
+        .await
         .unwrap();
 
     // Move /a to /new-a
-    manager.on_file_moved("/a", "/new-a").unwrap();
+    manager.on_file_moved("/a", "/new-a").await.unwrap();
 
     // Verify all files under /a were moved
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 4);
 
     let uris: Vec<&str> = results.iter().map(|r| r.metadata.uri.as_str()).collect();
@@ -252,33 +265,36 @@ fn test_file_moved_nested() {
     assert!(uris.contains(&"/x/file4")); // unchanged
 }
 
-#[test]
-fn test_file_deleted() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_file_deleted() {
+    let manager = create_test_manager().await;
 
     // Create files
     manager
         .on_file_created("/docs/file1", None, "content 1", "resource", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created("/docs/file2", None, "content 2", "resource", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created("/other/file3", None, "content 3", "resource", None, None)
+        .await
         .unwrap();
 
     // Delete by URI prefix
-    manager.on_file_deleted("/docs").unwrap();
+    manager.on_file_deleted("/docs").await.unwrap();
 
     // Verify deletion
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.uri, "/other/file3");
 }
 
-#[test]
-fn test_complete_file_lifecycle() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_complete_file_lifecycle() {
+    let manager = create_test_manager().await;
 
     // 1. Create
     manager
@@ -290,9 +306,10 @@ fn test_complete_file_lifecycle() {
             Some("README"),
             Some("Project readme"),
         )
+        .await
         .unwrap();
 
-    let results = manager.search("abc789", 10, None).unwrap();
+    let results = manager.search("abc789", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/project/readme.md");
 
@@ -306,26 +323,28 @@ fn test_complete_file_lifecycle() {
             Some("README"),
             Some("Project readme"),
         )
+        .await
         .unwrap();
 
     // File should still exist after update
-    let results = manager.search("def456", 10, None).unwrap();
+    let results = manager.search("def456", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/project/readme.md");
 
     // 3. Move
     manager
         .on_file_moved("/project", "/archive/project")
+        .await
         .unwrap();
 
-    let results = manager.search("def456", 10, None).unwrap();
+    let results = manager.search("def456", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/archive/project/readme.md");
 
     // 4. Delete
-    manager.on_file_deleted("/archive").unwrap();
+    manager.on_file_deleted("/archive").await.unwrap();
 
-    let results = manager.search("def456", 10, None).unwrap();
+    let results = manager.search("def456", 10, None).await.unwrap();
     assert!(results.is_empty());
 }
 
@@ -333,9 +352,9 @@ fn test_complete_file_lifecycle() {
 // Search Tests
 // ============================================================================
 
-#[test]
-fn test_search_basic() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_basic() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created(
@@ -346,6 +365,7 @@ fn test_search_basic() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -356,6 +376,7 @@ fn test_search_basic() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -366,26 +387,27 @@ fn test_search_basic() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     // All 3 files should be searchable
-    let results = manager.search("abc123", 10, None).unwrap();
+    let results = manager.search("abc123", 10, None).await.unwrap();
     assert!(!results.is_empty());
 
-    let results = manager.search("def456", 10, None).unwrap();
+    let results = manager.search("def456", 10, None).await.unwrap();
     assert!(!results.is_empty());
 
-    let results = manager.search("xyz789", 10, None).unwrap();
+    let results = manager.search("xyz789", 10, None).await.unwrap();
     assert!(!results.is_empty());
 
     // Total count should be 3
-    let results = manager.search("programming", 10, None).unwrap();
+    let results = manager.search("programming", 10, None).await.unwrap();
     assert_eq!(results.len(), 3);
 }
 
-#[test]
-fn test_search_with_limit() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_with_limit() {
+    let manager = create_test_manager().await;
 
     // Create 5 files
     for i in 0..5 {
@@ -398,16 +420,17 @@ fn test_search_with_limit() {
                 None,
                 None,
             )
+            .await
             .unwrap();
     }
 
-    let results = manager.search("Document", 3, None).unwrap();
+    let results = manager.search("Document", 3, None).await.unwrap();
     assert_eq!(results.len(), 3);
 }
 
-#[test]
-fn test_search_with_filter() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_with_filter() {
+    let manager = create_test_manager().await;
 
     // Create files with different context types
     manager
@@ -419,25 +442,28 @@ fn test_search_with_filter() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created("/memory/1", None, "memory content", "memory", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created("/skill/1", None, "skill content", "skill", None, None)
+        .await
         .unwrap();
 
     // Search with filter for memory type
     let filter = Filter::Eq("context_type".to_string(), json!("memory"));
-    let results = manager.search("content", 10, Some(filter)).unwrap();
+    let results = manager.search("content", 10, Some(filter)).await.unwrap();
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.context_type, "memory");
 }
 
-#[test]
-fn test_search_with_in_filter() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_with_in_filter() {
+    let manager = create_test_manager().await;
 
     // Create files with different context types
     manager
@@ -449,12 +475,15 @@ fn test_search_with_in_filter() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created("/memory/1", None, "memory content", "memory", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created("/skill/1", None, "skill content", "skill", None, None)
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -465,6 +494,7 @@ fn test_search_with_in_filter() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     // Search with filter for multiple types
@@ -472,7 +502,7 @@ fn test_search_with_in_filter() {
         "context_type".to_string(),
         vec![json!("resource"), json!("skill")],
     );
-    let results = manager.search("content", 10, Some(filter)).unwrap();
+    let results = manager.search("content", 10, Some(filter)).await.unwrap();
 
     assert_eq!(results.len(), 3);
     for result in &results {
@@ -482,30 +512,32 @@ fn test_search_with_in_filter() {
     }
 }
 
-#[test]
-fn test_search_empty_query() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_empty_query() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created("/doc1", None, "some content", "resource", None, None)
+        .await
         .unwrap();
 
     // Empty query should still return results (though relevance may vary)
-    let results = manager.search("", 10, None).unwrap();
+    let results = manager.search("", 10, None).await.unwrap();
     // Mock embedding provider generates deterministic vectors, so we should get results
     assert!(!results.is_empty());
 }
 
-#[test]
-fn test_search_no_results() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_search_no_results() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created("/doc1", None, "apples and oranges", "resource", None, None)
+        .await
         .unwrap();
 
     // Search for something completely different
-    let results = manager.search("quantum physics", 10, None).unwrap();
+    let results = manager.search("quantum physics", 10, None).await.unwrap();
     // We may still get results due to mock embedding nature, but they won't be relevant
     // Just verify the search doesn't error
     assert!(results.len() <= 1);
@@ -515,9 +547,9 @@ fn test_search_no_results() {
 // Multiple Files Tests
 // ============================================================================
 
-#[test]
-fn test_multiple_files_same_collection() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_multiple_files_same_collection() {
+    let manager = create_test_manager().await;
 
     // Create multiple files
     for i in 0..10 {
@@ -530,16 +562,17 @@ fn test_multiple_files_same_collection() {
                 Some(&format!("File {}", i)),
                 None,
             )
+            .await
             .unwrap();
     }
 
-    let results = manager.search("document", 10, None).unwrap();
+    let results = manager.search("document", 10, None).await.unwrap();
     assert_eq!(results.len(), 10);
 }
 
-#[test]
-fn test_delete_partial_prefix() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_delete_partial_prefix() {
+    let manager = create_test_manager().await;
 
     // Create files in different directories
     manager
@@ -551,6 +584,7 @@ fn test_delete_partial_prefix() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -561,6 +595,7 @@ fn test_delete_partial_prefix() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created(
@@ -571,15 +606,17 @@ fn test_delete_partial_prefix() {
             None,
             None,
         )
+        .await
         .unwrap();
     manager
         .on_file_created("/other/file", None, "other content", "resource", None, None)
+        .await
         .unwrap();
 
     // Delete only /docs/guide prefix
-    manager.on_file_deleted("/docs/guide").unwrap();
+    manager.on_file_deleted("/docs/guide").await.unwrap();
 
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 2);
 
     let uris: Vec<&str> = results.iter().map(|r| r.metadata.uri.as_str()).collect();
@@ -591,9 +628,9 @@ fn test_delete_partial_prefix() {
 // Metadata Tests
 // ============================================================================
 
-#[test]
-fn test_metadata_fields_populated() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_metadata_fields_populated() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created(
@@ -604,9 +641,10 @@ fn test_metadata_fields_populated() {
             Some("Test Skill"),
             Some("A test skill description"),
         )
+        .await
         .unwrap();
 
-    let results = manager.search("metadata", 10, None).unwrap();
+    let results = manager.search("metadata", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 
     let metadata = &results[0].metadata;
@@ -623,17 +661,18 @@ fn test_metadata_fields_populated() {
     assert!(!metadata.created_at.is_empty());
 }
 
-#[test]
-fn test_abstract_text_truncation() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_abstract_text_truncation() {
+    let manager = create_test_manager().await;
 
     // Create file with very long content
     let long_content = "a".repeat(1000);
     manager
         .on_file_created("/long/file", None, &long_content, "resource", None, None)
+        .await
         .unwrap();
 
-    let results = manager.search("a", 10, None).unwrap();
+    let results = manager.search("a", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 
     // Abstract should be truncated
@@ -642,9 +681,9 @@ fn test_abstract_text_truncation() {
     assert!(abstract_text.ends_with("..."));
 }
 
-#[test]
-fn test_optional_metadata_fields() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_optional_metadata_fields() {
+    let manager = create_test_manager().await;
 
     // Create file without optional fields
     manager
@@ -656,9 +695,10 @@ fn test_optional_metadata_fields() {
             None,
             None,
         )
+        .await
         .unwrap();
 
-    let results = manager.search("minimal", 10, None).unwrap();
+    let results = manager.search("minimal", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 
     let metadata = &results[0].metadata;
@@ -670,9 +710,9 @@ fn test_optional_metadata_fields() {
 // Collection Name Tests
 // ============================================================================
 
-#[test]
-fn test_collection_name() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_collection_name() {
+    let manager = create_test_manager().await;
     assert_eq!(manager.collection(), "test");
 }
 
@@ -680,22 +720,23 @@ fn test_collection_name() {
 // Edge Cases
 // ============================================================================
 
-#[test]
-fn test_create_file_with_empty_content() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_create_file_with_empty_content() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created("/empty/file", None, "", "resource", None, None)
+        .await
         .unwrap();
 
     // Should still create a vector (with mock embedding)
-    let results = manager.search("anything", 10, None).unwrap();
+    let results = manager.search("anything", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 }
 
-#[test]
-fn test_update_nonexistent_file() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_update_nonexistent_file() {
+    let manager = create_test_manager().await;
 
     // Updating a file that doesn't exist should still work (delete is no-op, then create)
     manager
@@ -707,50 +748,53 @@ fn test_update_nonexistent_file() {
             None,
             None,
         )
+        .await
         .unwrap();
 
-    let results = manager.search("new content", 10, None).unwrap();
+    let results = manager.search("new content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 }
 
-#[test]
-fn test_delete_nonexistent_prefix() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_delete_nonexistent_prefix() {
+    let manager = create_test_manager().await;
 
     // Create one file
     manager
         .on_file_created("/real/file", None, "content", "resource", None, None)
+        .await
         .unwrap();
 
     // Delete non-existent prefix should succeed
-    manager.on_file_deleted("/nonexistent").unwrap();
+    manager.on_file_deleted("/nonexistent").await.unwrap();
 
     // Original file should still exist
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 }
 
-#[test]
-fn test_move_with_no_matching_uris() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_move_with_no_matching_uris() {
+    let manager = create_test_manager().await;
 
     // Create file
     manager
         .on_file_created("/path/file", None, "content", "resource", None, None)
+        .await
         .unwrap();
 
     // Move with non-matching prefix should succeed but do nothing
-    manager.on_file_moved("/nonexistent", "/new").unwrap();
+    manager.on_file_moved("/nonexistent", "/new").await.unwrap();
 
     // File should remain unchanged
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.uri, "/path/file");
 }
 
-#[test]
-fn test_unicode_content() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_unicode_content() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created(
@@ -761,17 +805,18 @@ fn test_unicode_content() {
             Some("Unicode Test"),
             None,
         )
+        .await
         .unwrap();
 
-    let results = manager.search("world", 10, None).unwrap();
+    let results = manager.search("world", 10, None).await.unwrap();
     // Should handle unicode content without errors
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.name, Some("Unicode Test".to_string()));
 }
 
-#[test]
-fn test_special_characters_in_uri() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_special_characters_in_uri() {
+    let manager = create_test_manager().await;
 
     manager
         .on_file_created(
@@ -782,9 +827,10 @@ fn test_special_characters_in_uri() {
             None,
             None,
         )
+        .await
         .unwrap();
 
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(
         results[0].metadata.uri,
@@ -792,43 +838,48 @@ fn test_special_characters_in_uri() {
     );
 }
 
-#[test]
-fn test_consecutive_updates() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_consecutive_updates() {
+    let manager = create_test_manager().await;
 
     // Create
     manager
         .on_file_created("/file", None, "version 1 xyz111", "resource", None, None)
+        .await
         .unwrap();
 
     // Update multiple times
     manager
         .on_file_updated("/file", None, "version 2 xyz222", "resource", None, None)
+        .await
         .unwrap();
     manager
         .on_file_updated("/file", None, "version 3 xyz333", "resource", None, None)
+        .await
         .unwrap();
     manager
         .on_file_updated("/file", None, "version 4 xyz444", "resource", None, None)
+        .await
         .unwrap();
 
     // File should exist after all updates
-    let results = manager.search("xyz444", 10, None).unwrap();
+    let results = manager.search("xyz444", 10, None).await.unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].metadata.uri, "/file");
 
     // Only one file should exist (updates should replace, not add)
-    let results = manager.search("version", 10, None).unwrap();
+    let results = manager.search("version", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
 }
 
-#[test]
-fn test_move_after_update() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_move_after_update() {
+    let manager = create_test_manager().await;
 
     // Create
     manager
         .on_file_created("/original/file", None, "content", "resource", None, None)
+        .await
         .unwrap();
 
     // Update
@@ -841,33 +892,35 @@ fn test_move_after_update() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     // Move
-    manager.on_file_moved("/original", "/moved").unwrap();
+    manager.on_file_moved("/original", "/moved").await.unwrap();
 
     // Verify
-    let results = manager.search("updated content", 10, None).unwrap();
+    let results = manager.search("updated content", 10, None).await.unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].metadata.uri, "/moved/file");
 }
 
-#[test]
-fn test_delete_after_move() {
-    let manager = create_test_manager();
+#[tokio::test]
+async fn test_delete_after_move() {
+    let manager = create_test_manager().await;
 
     // Create
     manager
         .on_file_created("/a/file", None, "content", "resource", None, None)
+        .await
         .unwrap();
 
     // Move
-    manager.on_file_moved("/a", "/b").unwrap();
+    manager.on_file_moved("/a", "/b").await.unwrap();
 
     // Delete using new prefix
-    manager.on_file_deleted("/b").unwrap();
+    manager.on_file_deleted("/b").await.unwrap();
 
     // Verify deleted
-    let results = manager.search("content", 10, None).unwrap();
+    let results = manager.search("content", 10, None).await.unwrap();
     assert_eq!(results.len(), 0);
 }

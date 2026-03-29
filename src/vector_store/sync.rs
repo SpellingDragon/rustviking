@@ -57,7 +57,7 @@ impl VectorSyncManager {
     /// * `context_type` - Type of context: "resource", "memory", or "skill"
     /// * `name` - Optional name for the file
     /// * `description` - Optional description
-    pub fn on_file_created(
+    pub async fn on_file_created(
         &self,
         uri: &str,
         parent_uri: Option<&str>,
@@ -72,7 +72,7 @@ impl VectorSyncManager {
             model: None,
             normalize: true,
         };
-        let result = self.embedding_provider.embed(request)?;
+        let result = self.embedding_provider.embed(request).await?;
 
         // 2. Construct VectorPoint
         let id = generate_id(uri);
@@ -96,7 +96,7 @@ impl VectorSyncManager {
         };
 
         // 3. Upsert into vector store
-        self.vector_store.upsert(&self.collection, vec![point])?;
+        self.vector_store.upsert(&self.collection, vec![point]).await?;
         Ok(())
     }
 
@@ -106,9 +106,9 @@ impl VectorSyncManager {
     ///
     /// # Arguments
     /// * `uri` - The URI of the deleted file
-    pub fn on_file_deleted(&self, uri: &str) -> Result<()> {
+    pub async fn on_file_deleted(&self, uri: &str) -> Result<()> {
         self.vector_store
-            .delete_by_uri_prefix(&self.collection, uri)
+            .delete_by_uri_prefix(&self.collection, uri).await
     }
 
     /// Called when a file is moved/renamed in AGFS
@@ -118,9 +118,9 @@ impl VectorSyncManager {
     /// # Arguments
     /// * `old_uri` - The old URI of the file
     /// * `new_uri` - The new URI of the file
-    pub fn on_file_moved(&self, old_uri: &str, new_uri: &str) -> Result<()> {
+    pub async fn on_file_moved(&self, old_uri: &str, new_uri: &str) -> Result<()> {
         self.vector_store
-            .update_uri(&self.collection, old_uri, new_uri)
+            .update_uri(&self.collection, old_uri, new_uri).await
     }
 
     /// Called when a file is updated in AGFS
@@ -135,7 +135,7 @@ impl VectorSyncManager {
     /// * `context_type` - Type of context: "resource", "memory", or "skill"
     /// * `name` - Optional name for the file
     /// * `description` - Optional description
-    pub fn on_file_updated(
+    pub async fn on_file_updated(
         &self,
         uri: &str,
         parent_uri: Option<&str>,
@@ -145,9 +145,9 @@ impl VectorSyncManager {
         description: Option<&str>,
     ) -> Result<()> {
         // 1. Delete old vectors
-        self.on_file_deleted(uri)?;
+        self.on_file_deleted(uri).await?;
         // 2. Insert new vectors
-        self.on_file_created(uri, parent_uri, content, context_type, name, description)
+        self.on_file_created(uri, parent_uri, content, context_type, name, description).await
     }
 
     /// Search for similar content
@@ -158,7 +158,7 @@ impl VectorSyncManager {
     /// * `query` - The search query text
     /// * `k` - Number of results to return
     /// * `filters` - Optional filters to apply
-    pub fn search(
+    pub async fn search(
         &self,
         query: &str,
         k: usize,
@@ -170,12 +170,12 @@ impl VectorSyncManager {
             model: None,
             normalize: true,
         };
-        let result = self.embedding_provider.embed(request)?;
+        let result = self.embedding_provider.embed(request).await?;
         let query_vector = result.embeddings.into_iter().next().unwrap_or_default();
 
         // 2. Search in vector store
         self.vector_store
-            .search(&self.collection, &query_vector, k, filters)
+            .search(&self.collection, &query_vector, k, filters).await
     }
 
     /// Get the collection name
@@ -218,7 +218,7 @@ mod tests {
     use crate::vector_store::memory::MemoryVectorStore;
     use crate::vector_store::types::IndexParams;
 
-    fn create_test_manager() -> VectorSyncManager {
+    async fn create_test_manager() -> VectorSyncManager {
         let store = Arc::new(MemoryVectorStore::new());
         let provider = Arc::new(MockEmbeddingProvider::new(128));
 
@@ -232,19 +232,21 @@ mod tests {
                 dimension: 128,
                 max_concurrent: 1,
             })
+            .await
             .unwrap();
 
         // Create collection
         store
             .create_collection("test", 128, IndexParams::default())
+            .await
             .unwrap();
 
         VectorSyncManager::new(store, provider, "test".to_string())
     }
 
-    #[test]
-    fn test_file_created_and_search() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_file_created_and_search() {
+        let manager = create_test_manager().await;
 
         // Create a file
         manager
@@ -256,43 +258,47 @@ mod tests {
                 Some("README"),
                 Some("Documentation file"),
             )
+            .await
             .unwrap();
 
         // Search for similar content
-        let results = manager.search("documentation", 10, None).unwrap();
+        let results = manager.search("documentation", 10, None).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.uri, "/docs/readme");
         assert_eq!(results[0].metadata.context_type, "resource");
         assert_eq!(results[0].metadata.name, Some("README".to_string()));
     }
 
-    #[test]
-    fn test_file_deleted() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_file_deleted() {
+        let manager = create_test_manager().await;
 
         // Create a file
         manager
             .on_file_created("/docs/file1", None, "content 1", "resource", None, None)
+            .await
             .unwrap();
         manager
             .on_file_created("/docs/file2", None, "content 2", "resource", None, None)
+            .await
             .unwrap();
         manager
             .on_file_created("/other/file3", None, "content 3", "resource", None, None)
+            .await
             .unwrap();
 
         // Delete by URI prefix
-        manager.on_file_deleted("/docs").unwrap();
+        manager.on_file_deleted("/docs").await.unwrap();
 
         // Verify deletion
-        let results = manager.search("content", 10, None).unwrap();
+        let results = manager.search("content", 10, None).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.uri, "/other/file3");
     }
 
-    #[test]
-    fn test_file_moved() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_file_moved() {
+        let manager = create_test_manager().await;
 
         // Create a file
         manager
@@ -304,13 +310,14 @@ mod tests {
                 Some("test file"),
                 None,
             )
+            .await
             .unwrap();
 
         // Move the file
-        manager.on_file_moved("/old/path", "/new/path").unwrap();
+        manager.on_file_moved("/old/path", "/new/path").await.unwrap();
 
         // Verify the URI was updated
-        let results = manager.search("test content", 10, None).unwrap();
+        let results = manager.search("test content", 10, None).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.uri, "/new/path/file");
         assert_eq!(
@@ -319,29 +326,31 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_file_updated() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_file_updated() {
+        let manager = create_test_manager().await;
 
         // Create a file
         manager
             .on_file_created("/file", None, "old content", "resource", None, None)
+            .await
             .unwrap();
 
         // Update the file
         manager
             .on_file_updated("/file", None, "new content here", "resource", None, None)
+            .await
             .unwrap();
 
         // Verify update
-        let results = manager.search("new content", 10, None).unwrap();
+        let results = manager.search("new content", 10, None).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.uri, "/file");
     }
 
-    #[test]
-    fn test_search_with_filter() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_search_with_filter() {
+        let manager = create_test_manager().await;
 
         // Create files with different context types
         manager
@@ -353,9 +362,11 @@ mod tests {
                 None,
                 None,
             )
+            .await
             .unwrap();
         manager
             .on_file_created("/memory/1", None, "memory content", "memory", None, None)
+            .await
             .unwrap();
 
         // Search with filter
@@ -363,7 +374,7 @@ mod tests {
             "context_type".to_string(),
             Value::String("memory".to_string()),
         );
-        let results = manager.search("content", 10, Some(filter)).unwrap();
+        let results = manager.search("content", 10, Some(filter)).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].metadata.context_type, "memory");
@@ -402,9 +413,9 @@ mod tests {
         assert_eq!(truncated.chars().count(), 8); // 5 chars + "..."
     }
 
-    #[test]
-    fn test_metadata_fields() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_metadata_fields() {
+        let manager = create_test_manager().await;
 
         manager
             .on_file_created(
@@ -415,9 +426,10 @@ mod tests {
                 Some("Test Skill"),
                 Some("A test skill description"),
             )
+            .await
             .unwrap();
 
-        let results = manager.search("metadata", 10, None).unwrap();
+        let results = manager.search("metadata", 10, None).await.unwrap();
         assert_eq!(results.len(), 1);
 
         let metadata = &results[0].metadata;
@@ -434,9 +446,9 @@ mod tests {
         assert!(!metadata.created_at.is_empty());
     }
 
-    #[test]
-    fn test_collection_name() {
-        let manager = create_test_manager();
+    #[tokio::test]
+    async fn test_collection_name() {
+        let manager = create_test_manager().await;
         assert_eq!(manager.collection(), "test");
     }
 }

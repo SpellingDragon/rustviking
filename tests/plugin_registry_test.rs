@@ -23,8 +23,8 @@ fn test_register_and_create_vector_store() {
     assert_eq!(store.version(), "0.1.0");
 }
 
-#[test]
-fn test_vector_store_functional() {
+#[tokio::test]
+async fn test_vector_store_functional() {
     let mut registry = PluginRegistry::new();
 
     registry.register_vector_store("memory", || Box::new(MemoryVectorStore::new()));
@@ -34,9 +34,10 @@ fn test_vector_store_functional() {
     // Test create collection
     store
         .create_collection("test", 3, IndexParams::default())
+        .await
         .unwrap();
 
-    let info = store.collection_info("test").unwrap();
+    let info = store.collection_info("test").await.unwrap();
     assert_eq!(info.name, "test");
     assert_eq!(info.dimension, 3);
 }
@@ -56,8 +57,8 @@ fn test_register_and_create_embedding_provider() {
     assert_eq!(provider.version(), "0.1.0");
 }
 
-#[test]
-fn test_embedding_provider_functional() {
+#[tokio::test]
+async fn test_embedding_provider_functional() {
     let mut registry = PluginRegistry::new();
 
     registry.register_embedding_provider("mock", || Box::new(MockEmbeddingProvider::new(128)));
@@ -70,7 +71,7 @@ fn test_embedding_provider_functional() {
         normalize: false,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.dimension, 128);
 }
 
@@ -224,8 +225,8 @@ fn test_register_override_embedding_provider() {
 // Multiple Instance Tests
 // ============================================================================
 
-#[test]
-fn test_create_multiple_vector_store_instances() {
+#[tokio::test]
+async fn test_create_multiple_vector_store_instances() {
     let mut registry = PluginRegistry::new();
 
     registry.register_vector_store("memory", || Box::new(MemoryVectorStore::new()));
@@ -236,21 +237,23 @@ fn test_create_multiple_vector_store_instances() {
     // Each call should create a new instance
     store1
         .create_collection("test1", 64, IndexParams::default())
+        .await
         .unwrap();
     store2
         .create_collection("test2", 128, IndexParams::default())
+        .await
         .unwrap();
 
     // Verify they are independent
-    let info1 = store1.collection_info("test1").unwrap();
-    let info2 = store2.collection_info("test2").unwrap();
+    let info1 = store1.collection_info("test1").await.unwrap();
+    let info2 = store2.collection_info("test2").await.unwrap();
 
     assert_eq!(info1.dimension, 64);
     assert_eq!(info2.dimension, 128);
 }
 
-#[test]
-fn test_create_multiple_embedding_instances() {
+#[tokio::test]
+async fn test_create_multiple_embedding_instances() {
     let mut registry = PluginRegistry::new();
 
     registry.register_embedding_provider("mock", || Box::new(MockEmbeddingProvider::new(256)));
@@ -268,6 +271,7 @@ fn test_create_multiple_embedding_instances() {
             dimension: 512,
             ..Default::default()
         })
+        .await
         .unwrap();
 
     // provider2 should still have original dimension
@@ -323,8 +327,8 @@ fn test_plugin_info_clone() {
 // Integration Tests
 // ============================================================================
 
-#[test]
-fn test_full_workflow_vector_store() {
+#[tokio::test]
+async fn test_full_workflow_vector_store() {
     let mut registry = PluginRegistry::new();
 
     // Register plugin
@@ -334,11 +338,12 @@ fn test_full_workflow_vector_store() {
     let store = registry.create_vector_store("memory").unwrap();
 
     // Initialize
-    store.initialize(&serde_json::json!({})).unwrap();
+    store.initialize(&serde_json::json!({})).await.unwrap();
 
     // Create collection
     store
         .create_collection("documents", 256, IndexParams::default())
+        .await
         .unwrap();
 
     // Insert vectors
@@ -356,23 +361,24 @@ fn test_full_workflow_vector_store() {
             payload: serde_json::json!({"uri": "/docs/doc2"}),
         },
     ];
-    store.upsert("documents", points).unwrap();
+    store.upsert("documents", points).await.unwrap();
 
     // Search
     let results = store
         .search("documents", &vec![0.15; 256], 10, None)
+        .await
         .unwrap();
     assert_eq!(results.len(), 2);
 
     // Clean up
-    store.delete_by_uri_prefix("documents", "/docs").unwrap();
+    store.delete_by_uri_prefix("documents", "/docs").await.unwrap();
 
-    let info = store.collection_info("documents").unwrap();
+    let info = store.collection_info("documents").await.unwrap();
     assert_eq!(info.count, 0);
 }
 
-#[test]
-fn test_full_workflow_embedding() {
+#[tokio::test]
+async fn test_full_workflow_embedding() {
     let mut registry = PluginRegistry::new();
 
     // Register plugin
@@ -386,7 +392,7 @@ fn test_full_workflow_embedding() {
         dimension: 512,
         ..Default::default()
     };
-    provider.initialize(config).unwrap();
+    provider.initialize(config).await.unwrap();
 
     // Generate embeddings
     let request = EmbeddingRequest {
@@ -395,7 +401,7 @@ fn test_full_workflow_embedding() {
         normalize: true,
     };
 
-    let result = provider.embed(request).unwrap();
+    let result = provider.embed(request).await.unwrap();
     assert_eq!(result.embeddings.len(), 2);
     assert_eq!(result.dimension, 512);
 
@@ -428,8 +434,8 @@ fn test_register_and_create_rocksdb_vector_store() {
     assert_eq!(store.version(), "0.1.0");
 }
 
-#[test]
-fn test_rocksdb_vector_store_functional() {
+#[tokio::test]
+async fn test_rocksdb_vector_store_functional() {
     use rustviking::vector_store::IndexParams;
 
     let mut registry = PluginRegistry::new();
@@ -448,15 +454,16 @@ fn test_rocksdb_vector_store_functional() {
     // Test create collection
     store
         .create_collection("test", 3, IndexParams::default())
+        .await
         .unwrap();
 
-    let info = store.collection_info("test").unwrap();
+    let info = store.collection_info("test").await.unwrap();
     assert_eq!(info.name, "test");
     assert_eq!(info.dimension, 3);
 }
 
-#[test]
-fn test_rocksdb_vector_store_upsert_and_search() {
+#[tokio::test]
+async fn test_rocksdb_vector_store_upsert_and_search() {
     use rustviking::vector_store::types::VectorPoint;
     use rustviking::vector_store::IndexParams;
     use serde_json::json;
@@ -477,6 +484,7 @@ fn test_rocksdb_vector_store_upsert_and_search() {
     // Create collection
     store
         .create_collection("search_test", 3, IndexParams::default())
+        .await
         .unwrap();
 
     // Insert vectors
@@ -494,11 +502,12 @@ fn test_rocksdb_vector_store_upsert_and_search() {
             payload: json!({"uri": "/docs/p2", "context_type": "resource"}),
         },
     ];
-    store.upsert("search_test", points).unwrap();
+    store.upsert("search_test", points).await.unwrap();
 
     // Search
     let results = store
         .search("search_test", &[1.0, 0.0, 0.0], 2, None)
+        .await
         .unwrap();
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].id, "p1");
@@ -521,8 +530,8 @@ fn test_register_and_create_openai_embedding_provider() {
     assert_eq!(provider.version(), "0.1.0");
 }
 
-#[test]
-fn test_openai_embedding_provider_functional() {
+#[tokio::test]
+async fn test_openai_embedding_provider_functional() {
     use rustviking::embedding::types::EmbeddingConfig;
 
     let mut registry = PluginRegistry::new();
@@ -543,7 +552,7 @@ fn test_openai_embedding_provider_functional() {
         max_concurrent: 10,
     };
 
-    assert!(provider.initialize(config).is_ok());
+    assert!(provider.initialize(config).await.is_ok());
     assert_eq!(provider.default_dimension(), 1536);
 }
 

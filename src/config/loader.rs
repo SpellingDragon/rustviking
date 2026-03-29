@@ -147,6 +147,8 @@ pub struct QdrantConfig {
     pub collection: String,
     #[serde(default = "default_qdrant_timeout")]
     pub timeout_ms: u64,
+    #[serde(default)]
+    pub api_key: Option<String>,
 }
 
 /// Embedding 插件配置

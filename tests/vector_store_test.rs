@@ -29,34 +29,35 @@ fn create_test_point(id: &str, vector: Vec<f32>, uri: &str) -> VectorPoint {
 // Collection Tests
 // ============================================================================
 
-#[test]
-fn test_create_collection() {
+#[tokio::test]
+async fn test_create_collection() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("test_collection", 128, params)
+        .await
         .unwrap();
-    let info = store.collection_info("test_collection").unwrap();
+    let info = store.collection_info("test_collection").await.unwrap();
 
     assert_eq!(info.name, "test_collection");
     assert_eq!(info.dimension, 128);
     assert_eq!(info.count, 0);
 }
 
-#[test]
-fn test_create_duplicate_collection() {
+#[tokio::test]
+async fn test_create_duplicate_collection() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("test", 64, params.clone()).unwrap();
-    let result = store.create_collection("test", 64, params);
+    store.create_collection("test", 64, params.clone()).await.unwrap();
+    let result = store.create_collection("test", 64, params).await;
 
     assert!(result.is_err());
 }
 
-#[test]
-fn test_collection_info() {
+#[tokio::test]
+async fn test_collection_info() {
     let store = MemoryVectorStore::new();
     let params = IndexParams {
         index_type: IndexType::Flat,
@@ -64,8 +65,8 @@ fn test_collection_info() {
         ..Default::default()
     };
 
-    store.create_collection("info_test", 256, params).unwrap();
-    let info = store.collection_info("info_test").unwrap();
+    store.create_collection("info_test", 256, params).await.unwrap();
+    let info = store.collection_info("info_test").await.unwrap();
 
     assert_eq!(info.name, "info_test");
     assert_eq!(info.dimension, 256);
@@ -78,17 +79,17 @@ fn test_collection_info() {
 // Upsert and Get Tests
 // ============================================================================
 
-#[test]
-fn test_upsert_and_get() {
+#[tokio::test]
+async fn test_upsert_and_get() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("upsert_test", 3, params).unwrap();
+    store.create_collection("upsert_test", 3, params).await.unwrap();
 
     let point = create_test_point("p1", vec![1.0, 2.0, 3.0], "/test/file1");
-    store.upsert("upsert_test", vec![point]).unwrap();
+    store.upsert("upsert_test", vec![point]).await.unwrap();
 
-    let retrieved = store.get("upsert_test", "p1").unwrap();
+    let retrieved = store.get("upsert_test", "p1").await.unwrap();
     assert!(retrieved.is_some());
 
     let retrieved = retrieved.unwrap();
@@ -96,24 +97,25 @@ fn test_upsert_and_get() {
     assert_eq!(retrieved.vector, vec![1.0, 2.0, 3.0]);
 }
 
-#[test]
-fn test_upsert_overwrite() {
+#[tokio::test]
+async fn test_upsert_overwrite() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("overwrite_test", 3, params)
+        .await
         .unwrap();
 
     // Insert initial point
     let point1 = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/file1");
-    store.upsert("overwrite_test", vec![point1]).unwrap();
+    store.upsert("overwrite_test", vec![point1]).await.unwrap();
 
     // Overwrite with same ID
     let point2 = create_test_point("p1", vec![0.0, 1.0, 0.0], "/test/file2");
-    store.upsert("overwrite_test", vec![point2]).unwrap();
+    store.upsert("overwrite_test", vec![point2]).await.unwrap();
 
-    let retrieved = store.get("overwrite_test", "p1").unwrap().unwrap();
+    let retrieved = store.get("overwrite_test", "p1").await.unwrap().unwrap();
     assert_eq!(retrieved.vector, vec![0.0, 1.0, 0.0]);
 
     // Verify URI was updated
@@ -121,12 +123,12 @@ fn test_upsert_overwrite() {
     assert_eq!(uri, "/test/file2");
 }
 
-#[test]
-fn test_upsert_multiple_points() {
+#[tokio::test]
+async fn test_upsert_multiple_points() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("multi_test", 3, params).unwrap();
+    store.create_collection("multi_test", 3, params).await.unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
@@ -134,26 +136,26 @@ fn test_upsert_multiple_points() {
         create_test_point("p3", vec![0.0, 0.0, 1.0], "/test/3"),
     ];
 
-    store.upsert("multi_test", points).unwrap();
+    store.upsert("multi_test", points).await.unwrap();
 
-    let info = store.collection_info("multi_test").unwrap();
+    let info = store.collection_info("multi_test").await.unwrap();
     assert_eq!(info.count, 3);
 
-    assert!(store.get("multi_test", "p1").unwrap().is_some());
-    assert!(store.get("multi_test", "p2").unwrap().is_some());
-    assert!(store.get("multi_test", "p3").unwrap().is_some());
+    assert!(store.get("multi_test", "p1").await.unwrap().is_some());
+    assert!(store.get("multi_test", "p2").await.unwrap().is_some());
+    assert!(store.get("multi_test", "p3").await.unwrap().is_some());
 }
 
 // ============================================================================
 // Search Tests
 // ============================================================================
 
-#[test]
-fn test_search_basic() {
+#[tokio::test]
+async fn test_search_basic() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("search_test", 3, params).unwrap();
+    store.create_collection("search_test", 3, params).await.unwrap();
 
     // Insert orthogonal vectors
     let points = vec![
@@ -161,11 +163,12 @@ fn test_search_basic() {
         create_test_point("y_axis", vec![0.0, 1.0, 0.0], "/test/y"),
         create_test_point("z_axis", vec![0.0, 0.0, 1.0], "/test/z"),
     ];
-    store.upsert("search_test", points).unwrap();
+    store.upsert("search_test", points).await.unwrap();
 
     // Search for vector closest to [1.0, 0.0, 0.0]
     let results = store
         .search("search_test", &[1.0, 0.0, 0.0], 2, None)
+        .await
         .unwrap();
 
     assert_eq!(results.len(), 2);
@@ -175,12 +178,12 @@ fn test_search_basic() {
     assert!(results[0].score < results[1].score);
 }
 
-#[test]
-fn test_search_with_filter() {
+#[tokio::test]
+async fn test_search_with_filter() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("filter_test", 3, params).unwrap();
+    store.create_collection("filter_test", 3, params).await.unwrap();
 
     // Create points with different context types
     let mut p1 = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1");
@@ -210,12 +213,13 @@ fn test_search_with_filter() {
         "level": 0
     });
 
-    store.upsert("filter_test", vec![p1, p2, p3]).unwrap();
+    store.upsert("filter_test", vec![p1, p2, p3]).await.unwrap();
 
     // Filter for context_type == "resource"
     let filter = Filter::Eq("context_type".to_string(), json!("resource"));
     let results = store
         .search("filter_test", &[1.0, 0.0, 0.0], 10, Some(filter))
+        .await
         .unwrap();
 
     assert_eq!(results.len(), 2);
@@ -224,13 +228,14 @@ fn test_search_with_filter() {
     }
 }
 
-#[test]
-fn test_search_with_in_filter() {
+#[tokio::test]
+async fn test_search_with_in_filter() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("in_filter_test", 3, params)
+        .await
         .unwrap();
 
     let mut p1 = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1");
@@ -242,12 +247,13 @@ fn test_search_with_in_filter() {
     let mut p3 = create_test_point("p3", vec![0.0, 0.0, 1.0], "/test/3");
     p3.payload = json!({"id": "p3", "uri": "/test/3", "level": 2});
 
-    store.upsert("in_filter_test", vec![p1, p2, p3]).unwrap();
+    store.upsert("in_filter_test", vec![p1, p2, p3]).await.unwrap();
 
     // Filter for level in [0, 1]
     let filter = Filter::In("level".to_string(), vec![json!(0), json!(1)]);
     let results = store
         .search("in_filter_test", &[1.0, 0.0, 0.0], 10, Some(filter))
+        .await
         .unwrap();
 
     assert_eq!(results.len(), 2);
@@ -257,20 +263,20 @@ fn test_search_with_in_filter() {
     assert!(!ids.contains(&"p3"));
 }
 
-#[test]
-fn test_search_nonexistent_collection() {
+#[tokio::test]
+async fn test_search_nonexistent_collection() {
     let store = MemoryVectorStore::new();
 
-    let result = store.search("nonexistent", &[1.0, 0.0, 0.0], 10, None);
+    let result = store.search("nonexistent", &[1.0, 0.0, 0.0], 10, None).await;
     assert!(result.is_err());
 }
 
-#[test]
-fn test_search_with_limit() {
+#[tokio::test]
+async fn test_search_with_limit() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("limit_test", 3, params).unwrap();
+    store.create_collection("limit_test", 3, params).await.unwrap();
 
     let points: Vec<VectorPoint> = (0..10)
         .map(|i| {
@@ -279,11 +285,12 @@ fn test_search_with_limit() {
         })
         .collect();
 
-    store.upsert("limit_test", points).unwrap();
+    store.upsert("limit_test", points).await.unwrap();
 
     // Request only 3 results
     let results = store
         .search("limit_test", &[0.5, 0.5, 0.5], 3, None)
+        .await
         .unwrap();
     assert_eq!(results.len(), 3);
 }
@@ -292,37 +299,38 @@ fn test_search_with_limit() {
 // Delete Tests
 // ============================================================================
 
-#[test]
-fn test_delete() {
+#[tokio::test]
+async fn test_delete() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("delete_test", 3, params).unwrap();
+    store.create_collection("delete_test", 3, params).await.unwrap();
 
     let point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1");
-    store.upsert("delete_test", vec![point]).unwrap();
+    store.upsert("delete_test", vec![point]).await.unwrap();
 
     // Verify exists
-    assert!(store.get("delete_test", "p1").unwrap().is_some());
+    assert!(store.get("delete_test", "p1").await.unwrap().is_some());
 
     // Delete
-    store.delete("delete_test", "p1").unwrap();
+    store.delete("delete_test", "p1").await.unwrap();
 
     // Verify deleted
-    assert!(store.get("delete_test", "p1").unwrap().is_none());
+    assert!(store.get("delete_test", "p1").await.unwrap().is_none());
 
     // Verify count updated
-    let info = store.collection_info("delete_test").unwrap();
+    let info = store.collection_info("delete_test").await.unwrap();
     assert_eq!(info.count, 0);
 }
 
-#[test]
-fn test_delete_by_uri_prefix() {
+#[tokio::test]
+async fn test_delete_by_uri_prefix() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("uri_delete_test", 3, params)
+        .await
         .unwrap();
 
     let points = vec![
@@ -331,54 +339,57 @@ fn test_delete_by_uri_prefix() {
         create_test_point("p3", vec![0.0, 0.0, 1.0], "/other/file3.txt"),
     ];
 
-    store.upsert("uri_delete_test", points).unwrap();
+    store.upsert("uri_delete_test", points).await.unwrap();
 
     // Delete by URI prefix
     store
         .delete_by_uri_prefix("uri_delete_test", "/docs")
+        .await
         .unwrap();
 
     // p1 and p2 should be deleted
-    assert!(store.get("uri_delete_test", "p1").unwrap().is_none());
-    assert!(store.get("uri_delete_test", "p2").unwrap().is_none());
+    assert!(store.get("uri_delete_test", "p1").await.unwrap().is_none());
+    assert!(store.get("uri_delete_test", "p2").await.unwrap().is_none());
 
     // p3 should remain
-    assert!(store.get("uri_delete_test", "p3").unwrap().is_some());
+    assert!(store.get("uri_delete_test", "p3").await.unwrap().is_some());
 
-    let info = store.collection_info("uri_delete_test").unwrap();
+    let info = store.collection_info("uri_delete_test").await.unwrap();
     assert_eq!(info.count, 1);
 }
 
-#[test]
-fn test_delete_by_uri_prefix_no_match() {
+#[tokio::test]
+async fn test_delete_by_uri_prefix_no_match() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("no_match_test", 3, params).unwrap();
+    store.create_collection("no_match_test", 3, params).await.unwrap();
 
     let point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/file1.txt");
-    store.upsert("no_match_test", vec![point]).unwrap();
+    store.upsert("no_match_test", vec![point]).await.unwrap();
 
     // Delete with non-matching prefix
     store
         .delete_by_uri_prefix("no_match_test", "/nonexistent")
+        .await
         .unwrap();
 
     // Point should still exist
-    assert!(store.get("no_match_test", "p1").unwrap().is_some());
+    assert!(store.get("no_match_test", "p1").await.unwrap().is_some());
 }
 
 // ============================================================================
 // Update URI Tests
 // ============================================================================
 
-#[test]
-fn test_update_uri() {
+#[tokio::test]
+async fn test_update_uri() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("update_uri_test", 3, params)
+        .await
         .unwrap();
 
     let mut point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/old/path/file.txt");
@@ -389,14 +400,15 @@ fn test_update_uri() {
         "context_type": "resource"
     });
 
-    store.upsert("update_uri_test", vec![point]).unwrap();
+    store.upsert("update_uri_test", vec![point]).await.unwrap();
 
     // Update URI
     store
         .update_uri("update_uri_test", "/old/path", "/new/path")
+        .await
         .unwrap();
 
-    let updated = store.get("update_uri_test", "p1").unwrap().unwrap();
+    let updated = store.get("update_uri_test", "p1").await.unwrap().unwrap();
     let uri = updated.payload.get("uri").unwrap().as_str().unwrap();
     assert_eq!(uri, "/new/path/file.txt");
 
@@ -404,12 +416,12 @@ fn test_update_uri() {
     assert_eq!(parent_uri, "/new/path");
 }
 
-#[test]
-fn test_update_uri_partial_match() {
+#[tokio::test]
+async fn test_update_uri_partial_match() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("partial_test", 3, params).unwrap();
+    store.create_collection("partial_test", 3, params).await.unwrap();
 
     let mut point = create_test_point("p1", vec![1.0, 0.0, 0.0], "/old/path/file.txt");
     point.payload = json!({
@@ -417,15 +429,16 @@ fn test_update_uri_partial_match() {
         "uri": "/old/path/file.txt",
     });
 
-    store.upsert("partial_test", vec![point]).unwrap();
+    store.upsert("partial_test", vec![point]).await.unwrap();
 
     // Update with a different old_uri (no match)
     store
         .update_uri("partial_test", "/different/path", "/new/path")
+        .await
         .unwrap();
 
     // URI should remain unchanged
-    let unchanged = store.get("partial_test", "p1").unwrap().unwrap();
+    let unchanged = store.get("partial_test", "p1").await.unwrap().unwrap();
     let uri = unchanged.payload.get("uri").unwrap().as_str().unwrap();
     assert_eq!(uri, "/old/path/file.txt");
 }
@@ -434,17 +447,17 @@ fn test_update_uri_partial_match() {
 // Provider Info Tests
 // ============================================================================
 
-#[test]
-fn test_provider_name_and_version() {
+#[tokio::test]
+async fn test_provider_name_and_version() {
     let store = MemoryVectorStore::new();
     assert_eq!(store.name(), "memory");
     assert_eq!(store.version(), "0.1.0");
 }
 
-#[test]
-fn test_initialize() {
+#[tokio::test]
+async fn test_initialize() {
     let store = MemoryVectorStore::new();
-    let result = store.initialize(&json!({}));
+    let result = store.initialize(&json!({})).await;
     assert!(result.is_ok());
 }
 
@@ -452,69 +465,70 @@ fn test_initialize() {
 // Distance Type Tests
 // ============================================================================
 
-#[test]
-fn test_search_cosine_distance() {
+#[tokio::test]
+async fn test_search_cosine_distance() {
     let store = MemoryVectorStore::new();
     let params = IndexParams {
         distance: DistanceType::Cosine,
         ..Default::default()
     };
 
-    store.create_collection("cosine_test", 3, params).unwrap();
+    store.create_collection("cosine_test", 3, params).await.unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
         create_test_point("p2", vec![0.5, 0.5, 0.0], "/test/2"),
     ];
-    store.upsert("cosine_test", points).unwrap();
+    store.upsert("cosine_test", points).await.unwrap();
 
     // Search with [1, 0, 0] - should find p1 first
     let results = store
         .search("cosine_test", &[1.0, 0.0, 0.0], 2, None)
+        .await
         .unwrap();
     assert_eq!(results[0].id, "p1");
 }
 
-#[test]
-fn test_search_l2_distance() {
+#[tokio::test]
+async fn test_search_l2_distance() {
     let store = MemoryVectorStore::new();
     let params = IndexParams {
         distance: DistanceType::L2,
         ..Default::default()
     };
 
-    store.create_collection("l2_test", 3, params).unwrap();
+    store.create_collection("l2_test", 3, params).await.unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
         create_test_point("p2", vec![0.0, 1.0, 0.0], "/test/2"),
         create_test_point("p3", vec![0.0, 0.0, 1.0], "/test/3"),
     ];
-    store.upsert("l2_test", points).unwrap();
+    store.upsert("l2_test", points).await.unwrap();
 
     // Search with [1, 0, 0] - should find p1 first (L2 distance = 0)
-    let results = store.search("l2_test", &[1.0, 0.0, 0.0], 1, None).unwrap();
+    let results = store.search("l2_test", &[1.0, 0.0, 0.0], 1, None).await.unwrap();
     assert_eq!(results[0].id, "p1");
 }
 
-#[test]
-fn test_search_dot_product() {
+#[tokio::test]
+async fn test_search_dot_product() {
     let store = MemoryVectorStore::new();
     let params = IndexParams {
         distance: DistanceType::DotProduct,
         ..Default::default()
     };
 
-    store.create_collection("dot_test", 3, params).unwrap();
+    store.create_collection("dot_test", 3, params).await.unwrap();
 
     let points = vec![
         create_test_point("p1", vec![1.0, 0.0, 0.0], "/test/1"),
         create_test_point("p2", vec![0.0, 1.0, 0.0], "/test/2"),
     ];
-    store.upsert("dot_test", points).unwrap();
+    store.upsert("dot_test", points).await.unwrap();
 
     // For dot product, higher is better (lower "distance")
-    let results = store.search("dot_test", &[1.0, 0.0, 0.0], 1, None).unwrap();
+    let results = store.search("dot_test", &[1.0, 0.0, 0.0], 1, None).await.unwrap();
     assert_eq!(results[0].id, "p1");
 }
 
@@ -522,16 +536,16 @@ fn test_search_dot_product() {
 // Index Type Tests
 // ============================================================================
 
-#[test]
-fn test_index_types() {
+#[tokio::test]
+async fn test_index_types() {
     let store = MemoryVectorStore::new();
 
     let params = IndexParams {
         index_type: IndexType::Flat,
         ..Default::default()
     };
-    store.create_collection("flat_test", 64, params).unwrap();
-    let info = store.collection_info("flat_test").unwrap();
+    store.create_collection("flat_test", 64, params).await.unwrap();
+    let info = store.collection_info("flat_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Flat);
 
     // HNSW index
@@ -539,8 +553,8 @@ fn test_index_types() {
         index_type: IndexType::Hnsw,
         ..Default::default()
     };
-    store.create_collection("hnsw_test", 64, params).unwrap();
-    let info = store.collection_info("hnsw_test").unwrap();
+    store.create_collection("hnsw_test", 64, params).await.unwrap();
+    let info = store.collection_info("hnsw_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Hnsw);
 
     // IVF index
@@ -548,8 +562,8 @@ fn test_index_types() {
         index_type: IndexType::Ivf,
         ..Default::default()
     };
-    store.create_collection("ivf_test", 64, params).unwrap();
-    let info = store.collection_info("ivf_test").unwrap();
+    store.create_collection("ivf_test", 64, params).await.unwrap();
+    let info = store.collection_info("ivf_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::Ivf);
 
     // FlatHybrid index
@@ -557,8 +571,8 @@ fn test_index_types() {
         index_type: IndexType::FlatHybrid,
         ..Default::default()
     };
-    store.create_collection("hybrid_test", 64, params).unwrap();
-    let info = store.collection_info("hybrid_test").unwrap();
+    store.create_collection("hybrid_test", 64, params).await.unwrap();
+    let info = store.collection_info("hybrid_test").await.unwrap();
     assert_eq!(info.index_type, IndexType::FlatHybrid);
 }
 
@@ -566,62 +580,63 @@ fn test_index_types() {
 // Edge Cases
 // ============================================================================
 
-#[test]
-fn test_get_nonexistent_point() {
+#[tokio::test]
+async fn test_get_nonexistent_point() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("empty_test", 3, params).unwrap();
+    store.create_collection("empty_test", 3, params).await.unwrap();
 
-    let result = store.get("empty_test", "nonexistent").unwrap();
+    let result = store.get("empty_test", "nonexistent").await.unwrap();
     assert!(result.is_none());
 }
 
-#[test]
-fn test_delete_nonexistent_point() {
+#[tokio::test]
+async fn test_delete_nonexistent_point() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("delete_test", 3, params).unwrap();
+    store.create_collection("delete_test", 3, params).await.unwrap();
 
     // Deleting non-existent point should succeed (no-op)
-    let result = store.delete("delete_test", "nonexistent");
+    let result = store.delete("delete_test", "nonexistent").await;
     assert!(result.is_ok());
 }
 
-#[test]
-fn test_collection_info_nonexistent() {
+#[tokio::test]
+async fn test_collection_info_nonexistent() {
     let store = MemoryVectorStore::new();
 
-    let result = store.collection_info("nonexistent");
+    let result = store.collection_info("nonexistent").await;
     assert!(result.is_err());
 }
 
-#[test]
-fn test_upsert_wrong_dimension() {
+#[tokio::test]
+async fn test_upsert_wrong_dimension() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("dim_test", 3, params).unwrap();
+    store.create_collection("dim_test", 3, params).await.unwrap();
 
     // Try to insert vector with wrong dimension
     let point = create_test_point("p1", vec![1.0, 2.0], "/test/1"); // 2D instead of 3D
-    let result = store.upsert("dim_test", vec![point]);
+    let result = store.upsert("dim_test", vec![point]).await;
 
     assert!(result.is_err());
 }
 
-#[test]
-fn test_search_wrong_dimension() {
+#[tokio::test]
+async fn test_search_wrong_dimension() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
     store
         .create_collection("dim_search_test", 3, params)
+        .await
         .unwrap();
 
     // Try to search with wrong dimension
-    let result = store.search("dim_search_test", &[1.0, 2.0], 10, None);
+    let result = store.search("dim_search_test", &[1.0, 2.0], 10, None).await;
     assert!(result.is_err());
 }
 
@@ -629,12 +644,12 @@ fn test_search_wrong_dimension() {
 // Sparse Vector Tests
 // ============================================================================
 
-#[test]
-fn test_sparse_vector_storage() {
+#[tokio::test]
+async fn test_sparse_vector_storage() {
     let store = MemoryVectorStore::new();
     let params = IndexParams::default();
 
-    store.create_collection("sparse_test", 3, params).unwrap();
+    store.create_collection("sparse_test", 3, params).await.unwrap();
 
     let mut sparse = std::collections::HashMap::new();
     sparse.insert(0, 1.0);
@@ -647,9 +662,9 @@ fn test_sparse_vector_storage() {
         payload: json!({"id": "sparse_p1", "uri": "/test/sparse"}),
     };
 
-    store.upsert("sparse_test", vec![point]).unwrap();
+    store.upsert("sparse_test", vec![point]).await.unwrap();
 
-    let retrieved = store.get("sparse_test", "sparse_p1").unwrap().unwrap();
+    let retrieved = store.get("sparse_test", "sparse_p1").await.unwrap().unwrap();
     assert!(retrieved.sparse_vector.is_some());
 
     let retrieved_sparse = retrieved.sparse_vector.unwrap();

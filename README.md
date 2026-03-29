@@ -33,6 +33,8 @@
 | **VikingFS CLI** | ✅ 12 Commands | read/write/mkdir/rm/mv/ls/stat/abstract/overview/detail/find/commit |
 | **OpenAI Embedding** | ✅ Ready | Compatible with OpenAI API embedding services |
 | **SIMD Optimization** | ✅ Ready | ARM NEON / x86 AVX2/FMA acceleration (4-8x speedup) |
+| **Qdrant Vector Store** | 🆕 New | Async VectorStore adapter for Qdrant cloud/local |
+| **Async VectorStore** | ✅ Ready | OpenViking CollectionAdapter pattern with `async_trait` |
 | **S3FS Plugin** | ❌ Missing | S3-compatible storage backend |
 | **SQLFS Plugin** | ❌ Missing | SQL database storage backend |
 | **HTTP/gRPC Service** | ❌ Missing | REST API and gRPC interface |
@@ -121,11 +123,17 @@ flowchart TB
     subgraph Backends["Backend Implementations"]
         LocalFS["LocalFS<br/>(Local Filesystem)"]
         MemoryFS["MemoryFS<br/>(In-Memory)"]
-        VectorStore["VectorStore<br/>(RocksDB/Memory)"]
+        VectorStore["VectorStore<br/>(Adapter Pattern)"]
+    end
+    subgraph VectorAdapters["VectorStore Adapters<br/>(async_trait)"]
+        MemoryVector["MemoryVectorStore<br/>(tokio::sync::RwLock)"]
+        RocksVector["RocksDBVectorStore<br/>(spawn_blocking)"]
+        QdrantVector["QdrantVectorStore<br/>(New)"]
     end
     subgraph Storage["Underlying Storage"]
         RocksDB["Storage Layer (RocksDB)"]
         VectorIndex["Vector Index (HNSW/IVF)"]
+        QdrantCloud["Qdrant Cloud/Local"]
     end
     CLI --> VikingFS
     VikingFS --> AGFS
@@ -134,8 +142,11 @@ flowchart TB
     AGFS --> VectorStore
     LocalFS --> RocksDB
     MemoryFS --> RocksDB
-    VectorStore --> RocksDB
-    VectorStore --> VectorIndex
+    VectorStore --> VectorAdapters
+    MemoryVector --> RocksDB
+    RocksVector --> RocksDB
+    RocksVector --> VectorIndex
+    QdrantVector --> QdrantCloud
 ```
 
 ### Module Structure
@@ -146,7 +157,11 @@ src/
 ├── vikingfs/       # VikingFS Core (unified abstraction)
 ├── index/          # Vector Index (HNSW/IVF with persistence)
 ├── storage/        # KV Storage (RocksDB)
-├── vector_store/   # Vector Store abstraction
+├── vector_store/   # Vector Store abstraction (Adapter Pattern)
+│   ├── traits.rs   # Async VectorStore trait
+│   ├── memory.rs   # In-memory backend
+│   ├── rocks.rs    # RocksDB backend
+│   └── qdrant.rs   # Qdrant cloud backend
 ├── embedding/      # Embedding Providers
 ├── compute/        # SIMD-optimized Distance Computations
 │   ├── simd.rs     # ARM NEON / x86 AVX2/FMA acceleration
@@ -218,11 +233,18 @@ create_if_missing = true
 dimension = 768
 index_type = "ivf_pq"
 
+# Vector Store Backend: "memory", "rocksdb", or "qdrant"
 [vector_store]
 plugin = "rocksdb"
 
 [vector_store.rocksdb]
 path = "./data/rustviking/vector_store"
+
+# Qdrant Configuration (when plugin = "qdrant")
+[vector_store.qdrant]
+url = "http://localhost:6334"
+collection_name = "rustviking"
+# api_key = "your-api-key"  # For Qdrant Cloud
 
 [embedding]
 plugin = "mock"
@@ -232,6 +254,14 @@ provider = "heuristic"  # Options: "noop", "heuristic"
 ```
 
 See [config.toml.example](config.toml.example) for full configuration options.
+
+### Vector Store Backends
+
+| Backend | Plugin Name | Use Case |
+|---------|-------------|----------|
+| **Memory** | `memory` | Development, testing, ephemeral data |
+| **RocksDB** | `rocksdb` | Local production, embedded deployments |
+| **Qdrant** | `qdrant` | Cloud-native, distributed, high-scale |
 
 ---
 

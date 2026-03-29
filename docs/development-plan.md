@@ -51,8 +51,10 @@
 | **L0 摘要层** | 自动生成 | ✅ 启发式实现 | ✅ |
 | **L1 概述层** | 自动生成 | ✅ 启发式实现 | ✅ |
 | **分层检索** | 完整 | ✅ 实现 | ✅ |
-| **向量同步** | ✅ | ⚠️ 框架 | ⚠️ |
+| **向量同步** | ✅ | ✅ 异步实现 | ✅ |
 | **OpenAI Embedding** | ✅ | ✅ 实现 | ✅ |
+| **Async VectorStore** | ✅ | ✅ async_trait 适配器模式 | ✅ |
+| **Qdrant 适配器** | ✅ | ✅ 完整 CRUD + 搜索 | ✅ |
 | **HTTP/gRPC 服务** | ✅ | ❌ 未实现 | 🔴 |
 | **VikingFS Core** | ✅ | ✅ 实现 | ✅ |
 
@@ -824,10 +826,11 @@ src/
 │   ├── bitmap.rs              # 位图
 │   └── mod.rs
 │
-├── vector_store/              # 向量存储
-│   ├── traits.rs              # VectorStore trait
-│   ├── memory.rs              # 内存实现
-│   ├── rocks.rs              # RocksDB 实现
+├── vector_store/              # 向量存储 (Adapter Pattern)
+│   ├── traits.rs              # Async VectorStore trait
+│   ├── memory.rs              # 内存实现 (tokio::sync::RwLock)
+│   ├── rocks.rs              # RocksDB 实现 (spawn_blocking)
+│   ├── qdrant.rs             # Qdrant 适配器
 │   └── sync.rs               # 同步管理
 │
 ├── embedding/                 # Embedding

@@ -2,11 +2,14 @@
 //!
 //! Interface for embedding providers.
 
+use async_trait::async_trait;
+
 use crate::error::Result;
 
 use super::types::{EmbeddingConfig, EmbeddingRequest, EmbeddingResult};
 
 /// Embedding Provider Trait
+#[async_trait]
 pub trait EmbeddingProvider: Send + Sync {
     /// Provider 名称
     fn name(&self) -> &str;
@@ -15,13 +18,13 @@ pub trait EmbeddingProvider: Send + Sync {
     fn version(&self) -> &str;
 
     /// 初始化
-    fn initialize(&self, config: EmbeddingConfig) -> Result<()>;
+    async fn initialize(&self, config: EmbeddingConfig) -> Result<()>;
 
     /// 生成 Embedding
-    fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult>;
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult>;
 
     /// 批量生成 Embedding（支持并发控制）
-    fn embed_batch(
+    async fn embed_batch(
         &self,
         requests: Vec<EmbeddingRequest>,
         max_concurrent: usize,

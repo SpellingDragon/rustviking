@@ -16,7 +16,7 @@ use rustviking::vector_store::types::IndexParams;
 use rustviking::vikingfs::{HeuristicSummaryProvider, SummaryProvider, VikingFS};
 
 /// Create a test VikingFS instance with MemoryFS and MockEmbeddingProvider
-fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
+async fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
     // 1. Create AGFS with MemoryPlugin mounted at root
     // This allows us to use paths like "/resources/test" directly
     let agfs = Arc::new(MountableFS::new());
@@ -32,6 +32,7 @@ fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
     let dimension = 128;
     vector_store
         .create_collection("default", dimension, IndexParams::default())
+        .await
         .unwrap();
 
     // 3. Create and initialize MockEmbeddingProvider
@@ -45,7 +46,7 @@ fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
         dimension,
         max_concurrent: 10,
     };
-    embedding_provider.initialize(embedding_config).unwrap();
+    embedding_provider.initialize(embedding_config).await.unwrap();
 
     // 4. Create VectorSyncManager
     let vector_sync = Arc::new(VectorSyncManager::new(
@@ -69,28 +70,28 @@ fn create_test_vikingfs() -> (VikingFS, Arc<MountableFS>) {
     (vikingfs, agfs)
 }
 
-#[test]
-fn test_vikingfs_write_and_read() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_write_and_read() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // 1. Write file
     let uri = "viking://resources/test/hello.txt";
     let content = b"Hello, VikingFS!";
-    vikingfs.write(uri, content).unwrap();
+    vikingfs.write(uri, content).await.unwrap();
 
     // 2. Read back and verify
     let read_data = vikingfs.read(uri).unwrap();
     assert_eq!(read_data, content);
 }
 
-#[test]
-fn test_vikingfs_write_context_with_auto_summary() {
-    let (vikingfs, agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_write_context_with_auto_summary() {
+    let (vikingfs, agfs) = create_test_vikingfs().await;
 
     // 1. Write with auto_summary enabled
     let uri = "viking://resources/test/document.md";
     let content = b"# Project Documentation\n\nThis is a comprehensive guide to the project.\n\n## Getting Started\n\nFollow these steps to begin.";
-    vikingfs.write_context(uri, content, true).unwrap();
+    vikingfs.write_context(uri, content, true).await.unwrap();
 
     // 2. Verify .abstract.md was created
     let _abstract_uri = "viking://resources/test/document.md.abstract.md";
@@ -104,9 +105,9 @@ fn test_vikingfs_write_context_with_auto_summary() {
     assert!(abstract_content.contains("Project") || abstract_content.contains("Documentation"));
 }
 
-#[test]
-fn test_vikingfs_commit_generates_overview() {
-    let (vikingfs, agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_commit_generates_overview() {
+    let (vikingfs, agfs) = create_test_vikingfs().await;
 
     // 1. Write multiple files to the same directory
     let files = vec![
@@ -125,12 +126,12 @@ fn test_vikingfs_commit_generates_overview() {
     ];
 
     for (uri, content) in &files {
-        vikingfs.write(uri, content.as_slice()).unwrap();
+        vikingfs.write(uri, content.as_slice()).await.unwrap();
     }
 
     // 2. Call commit on the directory
     let dir_uri = "viking://resources/test";
-    vikingfs.commit(dir_uri).unwrap();
+    vikingfs.commit(dir_uri).await.unwrap();
 
     // 3. Verify .overview.md was created
     let overview_path = "/resources/test/.overview.md";
@@ -143,9 +144,9 @@ fn test_vikingfs_commit_generates_overview() {
     assert!(overview_content.contains("Directory Overview"));
 }
 
-#[test]
-fn test_vikingfs_mkdir_ls_stat() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_mkdir_ls_stat() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // 1. mkdir - create directory
     let dir_uri = "viking://resources/test/mydir";
@@ -157,7 +158,7 @@ fn test_vikingfs_mkdir_ls_stat() {
 
     // 3. write - create a file in the directory
     let file_uri = "viking://resources/test/mydir/file.txt";
-    vikingfs.write(file_uri, b"test content").unwrap();
+    vikingfs.write(file_uri, b"test content").await.unwrap();
 
     // 4. ls - should now have the file
     let entries = vikingfs.ls(dir_uri).unwrap();
@@ -177,20 +178,20 @@ fn test_vikingfs_mkdir_ls_stat() {
     assert!(dir_info.is_dir);
 }
 
-#[test]
-fn test_vikingfs_rm_sync() {
-    let (vikingfs, agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_rm_sync() {
+    let (vikingfs, agfs) = create_test_vikingfs().await;
 
     // 1. Write file
     let uri = "viking://resources/test/todelete.txt";
-    vikingfs.write(uri, b"delete me").unwrap();
+    vikingfs.write(uri, b"delete me").await.unwrap();
 
     // Verify file exists
     let path = "/resources/test/todelete.txt";
     assert!(agfs.route(path).is_some());
 
     // 2. Delete file
-    vikingfs.rm(uri, false).unwrap();
+    vikingfs.rm(uri, false).await.unwrap();
 
     // 3. Verify file does not exist
     // Note: The file might still be routed but reading should fail
@@ -198,18 +199,18 @@ fn test_vikingfs_rm_sync() {
     assert!(read_result.is_err());
 }
 
-#[test]
-fn test_vikingfs_mv_sync() {
-    let (vikingfs, agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_mv_sync() {
+    let (vikingfs, agfs) = create_test_vikingfs().await;
 
     // 1. Write file to path A
     let from_uri = "viking://resources/test/source.txt";
     let content = b"Move this file";
-    vikingfs.write(from_uri, content).unwrap();
+    vikingfs.write(from_uri, content).await.unwrap();
 
     // 2. Move to path B
     let to_uri = "viking://resources/test/dest.txt";
-    vikingfs.mv(from_uri, to_uri).unwrap();
+    vikingfs.mv(from_uri, to_uri).await.unwrap();
 
     // 3. Verify A does not exist
     let _from_path = "/resources/test/source.txt";
@@ -223,15 +224,16 @@ fn test_vikingfs_mv_sync() {
     assert_eq!(read_data, content);
 }
 
-#[test]
-fn test_vikingfs_read_abstract_overview_detail() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_read_abstract_overview_detail() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // 1. Use write_context to write content with auto_summary
     let uri = "viking://resources/test/context_doc.md";
     let content = "# Main Document\n\nThis is the main content of the document. It contains detailed information about the project structure and implementation.\n\n## Section 1\n\nDetails about section 1.\n\n## Section 2\n\nDetails about section 2.";
     vikingfs
         .write_context(uri, content.as_bytes(), true)
+        .await
         .unwrap();
 
     // 2. read_abstract - read L0
@@ -245,7 +247,7 @@ fn test_vikingfs_read_abstract_overview_detail() {
 
     // 3. Commit to generate overview
     let dir_uri = "viking://resources/test";
-    vikingfs.commit(dir_uri).unwrap();
+    vikingfs.commit(dir_uri).await.unwrap();
 
     // 4. read_overview - read L1
     let overview_content = vikingfs.read_overview(dir_uri).unwrap();
@@ -257,9 +259,9 @@ fn test_vikingfs_read_abstract_overview_detail() {
     assert_eq!(detail_content, content.as_bytes());
 }
 
-#[test]
-fn test_vikingfs_find_returns_results() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_find_returns_results() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // 1. Write several files with different content
     let files = vec![
@@ -281,14 +283,14 @@ fn test_vikingfs_find_returns_results() {
     ];
 
     for (uri, content, _tag) in &files {
-        vikingfs.write(uri, content.as_bytes()).unwrap();
+        vikingfs.write(uri, content.as_bytes()).await.unwrap();
     }
 
     // Wait a moment for async operations to complete
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     // 2. Call find to search for "rust"
-    let results = vikingfs.find("rust programming", None, 5, None).unwrap();
+    let results = vikingfs.find("rust programming", None, 5, None).await.unwrap();
 
     // 3. Verify results are returned
     // Note: With mock embeddings, results are deterministic but may not be semantically accurate
@@ -297,23 +299,23 @@ fn test_vikingfs_find_returns_results() {
     let _ = results.is_empty(); // Acknowledge results variable
 }
 
-#[test]
-fn test_vikingfs_write_read_binary_data() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_write_read_binary_data() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // Write binary data
     let uri = "viking://resources/test/binary.bin";
     let content: Vec<u8> = (0..256).map(|i| i as u8).collect();
-    vikingfs.write(uri, &content).unwrap();
+    vikingfs.write(uri, &content).await.unwrap();
 
     // Read back and verify
     let read_data = vikingfs.read(uri).unwrap();
     assert_eq!(read_data, content);
 }
 
-#[test]
-fn test_vikingfs_nested_directories() {
-    let (vikingfs, _agfs) = create_test_vikingfs();
+#[tokio::test]
+async fn test_vikingfs_nested_directories() {
+    let (vikingfs, _agfs) = create_test_vikingfs().await;
 
     // Create nested directories
     let dir1 = "viking://resources/test/level1";
@@ -326,7 +328,7 @@ fn test_vikingfs_nested_directories() {
 
     // Write file at deepest level
     let file_uri = "viking://resources/test/level1/level2/level3/deep.txt";
-    vikingfs.write(file_uri, b"deep content").unwrap();
+    vikingfs.write(file_uri, b"deep content").await.unwrap();
 
     // Verify we can read it back
     let content = vikingfs.read(file_uri).unwrap();

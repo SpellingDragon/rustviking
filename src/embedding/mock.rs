@@ -6,6 +6,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
+use async_trait::async_trait;
+
 use crate::compute::normalize::l2_normalize;
 use crate::error::Result;
 
@@ -76,6 +78,7 @@ impl Default for MockEmbeddingProvider {
     }
 }
 
+#[async_trait]
 impl EmbeddingProvider for MockEmbeddingProvider {
     fn name(&self) -> &str {
         "mock"
@@ -85,14 +88,14 @@ impl EmbeddingProvider for MockEmbeddingProvider {
         "0.1.0"
     }
 
-    fn initialize(&self, config: EmbeddingConfig) -> Result<()> {
+    async fn initialize(&self, config: EmbeddingConfig) -> Result<()> {
         // 存储配置，更新 dimension
         let mut dimension = self.dimension.lock().unwrap();
         *dimension = config.dimension;
         Ok(())
     }
 
-    fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult> {
+    async fn embed(&self, request: EmbeddingRequest) -> Result<EmbeddingResult> {
         let dimension = *self.dimension.lock().unwrap();
 
         // 为每个文本生成 embedding
@@ -119,13 +122,17 @@ impl EmbeddingProvider for MockEmbeddingProvider {
         })
     }
 
-    fn embed_batch(
+    async fn embed_batch(
         &self,
         requests: Vec<EmbeddingRequest>,
         _max_concurrent: usize,
     ) -> Result<Vec<EmbeddingResult>> {
         // 循环调用 embed 处理每个请求
-        requests.into_iter().map(|req| self.embed(req)).collect()
+        let mut results = Vec::new();
+        for req in requests {
+            results.push(self.embed(req).await?);
+        }
+        Ok(results)
     }
 
     fn default_dimension(&self) -> usize {
@@ -141,8 +148,8 @@ impl EmbeddingProvider for MockEmbeddingProvider {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_mock_provider_default() {
+    #[tokio::test]
+    async fn test_mock_provider_default() {
         let provider = MockEmbeddingProvider::default();
         assert_eq!(provider.name(), "mock");
         assert_eq!(provider.version(), "0.1.0");
@@ -150,25 +157,25 @@ mod tests {
         assert_eq!(provider.supported_models(), vec!["mock-embedding-v1"]);
     }
 
-    #[test]
-    fn test_mock_provider_new() {
+    #[tokio::test]
+    async fn test_mock_provider_new() {
         let provider = MockEmbeddingProvider::new(512);
         assert_eq!(provider.default_dimension(), 512);
     }
 
-    #[test]
-    fn test_mock_provider_initialize() {
+    #[tokio::test]
+    async fn test_mock_provider_initialize() {
         let provider = MockEmbeddingProvider::new(512);
         let config = EmbeddingConfig {
             dimension: 768,
             ..Default::default()
         };
-        assert!(provider.initialize(config).is_ok());
+        assert!(provider.initialize(config).await.is_ok());
         assert_eq!(provider.default_dimension(), 768);
     }
 
-    #[test]
-    fn test_mock_provider_embed_deterministic() {
+    #[tokio::test]
+    async fn test_mock_provider_embed_deterministic() {
         let provider = MockEmbeddingProvider::new(128);
         let request = EmbeddingRequest {
             texts: vec!["hello world".to_string()],
@@ -176,16 +183,16 @@ mod tests {
             normalize: false,
         };
 
-        let result1 = provider.embed(request.clone()).unwrap();
-        let result2 = provider.embed(request).unwrap();
+        let result1 = provider.embed(request.clone()).await.unwrap();
+        let result2 = provider.embed(request).await.unwrap();
 
         // 相同文本应生成相同向量
         assert_eq!(result1.embeddings[0], result2.embeddings[0]);
         assert_eq!(result1.dimension, 128);
     }
 
-    #[test]
-    fn test_mock_provider_embed_normalized() {
+    #[tokio::test]
+    async fn test_mock_provider_embed_normalized() {
         let provider = MockEmbeddingProvider::new(64);
         let request = EmbeddingRequest {
             texts: vec!["test text".to_string()],
@@ -193,7 +200,7 @@ mod tests {
             normalize: true,
         };
 
-        let result = provider.embed(request).unwrap();
+        let result = provider.embed(request).await.unwrap();
         let vector = &result.embeddings[0];
 
         // 检查归一化后向量的 L2 范数是否为 1
@@ -204,8 +211,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_mock_provider_embed_batch() {
+    #[tokio::test]
+    async fn test_mock_provider_embed_batch() {
         let provider = MockEmbeddingProvider::new(32);
         let requests = vec![
             EmbeddingRequest {
@@ -220,7 +227,7 @@ mod tests {
             },
         ];
 
-        let results = provider.embed_batch(requests, 2).unwrap();
+        let results = provider.embed_batch(requests, 2).await.unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].embeddings.len(), 2);
         assert_eq!(results[1].embeddings.len(), 1);

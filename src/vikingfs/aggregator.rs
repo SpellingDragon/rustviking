@@ -79,7 +79,7 @@ impl DirectorySummaryAggregator {
     ///
     /// # Returns
     /// * `AggregateResult` - Statistics and any non-fatal errors
-    pub fn aggregate(&self, dir_path: &str) -> Result<AggregateResult> {
+    pub async fn aggregate(&self, dir_path: &str) -> Result<AggregateResult> {
         let mut result = AggregateResult::new();
         let mut abstracts = Vec::new();
 
@@ -115,7 +115,7 @@ impl DirectorySummaryAggregator {
             };
 
             // Try to read and summarize the file
-            match self.process_file(&file_path, &entry.name) {
+            match self.process_file(&file_path, &entry.name).await {
                 Ok(Some(abstract_text)) => {
                     abstracts.push(abstract_text);
                     result.increment_abstracts();
@@ -132,7 +132,7 @@ impl DirectorySummaryAggregator {
 
         // Generate overview if we have abstracts
         if !abstracts.is_empty() {
-            match self.generate_overview(dir_path, &abstracts) {
+            match self.generate_overview(dir_path, &abstracts).await {
                 Ok(_) => {
                     result.set_overview_generated();
                 }
@@ -146,7 +146,7 @@ impl DirectorySummaryAggregator {
     }
 
     /// Process a single file: read content and generate abstract
-    fn process_file(&self, file_path: &str, file_name: &str) -> Result<Option<String>> {
+    async fn process_file(&self, file_path: &str, file_name: &str) -> Result<Option<String>> {
         // Read file content
         let data = self.agfs.route_operation(file_path, |fs| {
             let size = fs.size(file_path)?;
@@ -174,7 +174,7 @@ impl DirectorySummaryAggregator {
         }
 
         // Generate abstract
-        let abstract_text = self.summary_provider.generate_abstract(&content)?;
+        let abstract_text = self.summary_provider.generate_abstract(&content).await?;
 
         // Write .abstract.md file
         let abstract_path = format!("{}.abstract.md", file_path);
@@ -199,9 +199,9 @@ impl DirectorySummaryAggregator {
     }
 
     /// Generate L1 overview from abstracts
-    fn generate_overview(&self, dir_path: &str, abstracts: &[String]) -> Result<()> {
+    async fn generate_overview(&self, dir_path: &str, abstracts: &[String]) -> Result<()> {
         // Generate overview text
-        let overview_text = self.summary_provider.generate_overview(abstracts)?;
+        let overview_text = self.summary_provider.generate_overview(abstracts).await?;
 
         // Format as markdown
         let overview_content = format!(
@@ -423,20 +423,20 @@ mod tests {
         agfs
     }
 
-    #[test]
-    fn test_aggregate_empty_directory() {
+    #[tokio::test]
+    async fn test_aggregate_empty_directory() {
         let agfs = create_test_mountable_fs();
         let summary_provider: Arc<dyn SummaryProvider> = Arc::new(NoopSummaryProvider);
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs);
 
-        let result = aggregator.aggregate("/resources/test").unwrap();
+        let result = aggregator.aggregate("/resources/test").await.unwrap();
 
         assert_eq!(result.abstracts_generated, 0);
         assert!(!result.overview_generated);
     }
 
-    #[test]
-    fn test_aggregate_with_files() {
+    #[tokio::test]
+    async fn test_aggregate_with_files() {
         let agfs = create_test_mountable_fs();
 
         // Add test files
@@ -461,7 +461,7 @@ mod tests {
         let summary_provider: Arc<dyn SummaryProvider> = Arc::new(HeuristicSummaryProvider::new());
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs.clone());
 
-        let result = aggregator.aggregate("/resources/test").unwrap();
+        let result = aggregator.aggregate("/resources/test").await.unwrap();
 
         assert_eq!(result.abstracts_generated, 2);
         assert!(result.overview_generated);
@@ -479,8 +479,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_aggregate_skips_special_files() {
+    #[tokio::test]
+    async fn test_aggregate_skips_special_files() {
         let agfs = create_test_mountable_fs();
 
         // Add test files including special ones
@@ -512,7 +512,7 @@ mod tests {
         let summary_provider: Arc<dyn SummaryProvider> = Arc::new(HeuristicSummaryProvider::new());
         let aggregator = DirectorySummaryAggregator::new(summary_provider, agfs);
 
-        let result = aggregator.aggregate("/resources/test").unwrap();
+        let result = aggregator.aggregate("/resources/test").await.unwrap();
 
         // Should only process doc.md, not the special files
         assert_eq!(result.abstracts_generated, 1);

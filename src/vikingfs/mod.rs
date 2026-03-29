@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use serde::Serialize;
 
 use crate::agfs::{setup_agfs, FileInfo, MountableFS, VikingUri};
@@ -18,6 +19,7 @@ use crate::embedding::traits::EmbeddingProvider;
 use crate::embedding::types::EmbeddingConfig;
 use crate::error::{Result, RustVikingError};
 use crate::vector_store::memory::MemoryVectorStore;
+use crate::vector_store::qdrant::QdrantVectorStore;
 use crate::vector_store::rocks::RocksDBVectorStore;
 use crate::vector_store::sync::VectorSyncManager;
 use crate::vector_store::traits::VectorStore;
@@ -34,12 +36,13 @@ pub use heuristic_summary::HeuristicSummaryProvider;
 /// Provides abstraction capabilities for generating summaries at different levels:
 /// - L0: Abstract (~100 tokens)
 /// - L1: Overview (~2k tokens)
+#[async_trait]
 pub trait SummaryProvider: Send + Sync {
     /// Generate abstract summary (~100 tokens)
-    fn generate_abstract(&self, text: &str) -> Result<String>;
+    async fn generate_abstract(&self, text: &str) -> Result<String>;
 
     /// Generate overview summary (~2k tokens)
-    fn generate_overview(&self, texts: &[String]) -> Result<String>;
+    async fn generate_overview(&self, texts: &[String]) -> Result<String>;
 }
 
 /// No-operation summary provider (default implementation)
@@ -47,13 +50,14 @@ pub trait SummaryProvider: Send + Sync {
 /// Task 3 will replace this with a heuristic implementation.
 pub struct NoopSummaryProvider;
 
+#[async_trait]
 impl SummaryProvider for NoopSummaryProvider {
-    fn generate_abstract(&self, text: &str) -> Result<String> {
+    async fn generate_abstract(&self, text: &str) -> Result<String> {
         // Simple truncation: take first 200 characters as abstract
         Ok(text.chars().take(200).collect())
     }
 
-    fn generate_overview(&self, texts: &[String]) -> Result<String> {
+    async fn generate_overview(&self, texts: &[String]) -> Result<String> {
         Ok(texts.join("\n\n"))
     }
 }
@@ -124,7 +128,7 @@ impl VikingFS {
     ///
     /// # Arguments
     /// * `config` - Configuration object
-    pub fn from_config(config: &Config) -> Result<Self> {
+    pub async fn from_config(config: &Config) -> Result<Self> {
         // 1. Create AGFS with standard mount points
         let agfs = Arc::new(setup_agfs(&config.storage.path)?);
 
@@ -134,7 +138,7 @@ impl VikingFS {
         let vector_store: Arc<dyn VectorStore> = match config.vector_store.plugin.as_str() {
             "memory" => {
                 let store = MemoryVectorStore::new();
-                store.create_collection("default", dimension, IndexParams::default())?;
+                store.create_collection("default", dimension, IndexParams::default()).await?;
                 Arc::new(store)
             }
             "rocksdb" => {
@@ -145,8 +149,20 @@ impl VikingFS {
                     .map(|c| c.path.clone())
                     .unwrap_or_else(|| format!("{}/vector_store", config.storage.path));
                 let store = RocksDBVectorStore::with_path(&path)?;
-                store.create_collection("default", dimension, IndexParams::default())?;
+                store.create_collection("default", dimension, IndexParams::default()).await?;
                 Arc::new(store)
+            }
+            "qdrant" => {
+                let qdrant_config = config.vector_store.qdrant.as_ref()
+                    .ok_or_else(|| RustVikingError::Config("Qdrant config missing".into()))?;
+                let store = QdrantVectorStore::new(
+                    &qdrant_config.url,
+                    qdrant_config.api_key.as_deref(),
+                    &qdrant_config.collection,
+                    qdrant_config.timeout_ms,
+                ).await?;
+                store.create_collection("default", dimension, IndexParams::default()).await?;
+                Arc::new(store) as Arc<dyn VectorStore>
             }
             _ => {
                 return Err(RustVikingError::Config(format!(
@@ -177,7 +193,7 @@ impl VikingFS {
                     dimension,
                     max_concurrent: 10,
                 };
-                provider.initialize(embedding_config)?;
+                provider.initialize(embedding_config).await?;
                 Arc::new(provider)
             }
             "openai" => {
@@ -191,7 +207,7 @@ impl VikingFS {
                         dimension: openai_config.dimension,
                         max_concurrent: openai_config.max_concurrent,
                     };
-                    provider.initialize(embedding_config)?;
+                    provider.initialize(embedding_config).await?;
                 } else {
                     return Err(RustVikingError::Config(
                         "OpenAI embedding provider requires openai configuration".to_string(),
@@ -249,7 +265,7 @@ impl VikingFS {
     /// # Arguments
     /// * `uri` - Viking URI string
     /// * `data` - File content
-    pub fn write(&self, uri: &str, data: &[u8]) -> Result<()> {
+    pub async fn write(&self, uri: &str, data: &[u8]) -> Result<()> {
         let viking_uri = VikingUri::parse(uri)?;
         let path = viking_uri.to_internal_path();
 
@@ -269,7 +285,7 @@ impl VikingFS {
             "resource",
             None,
             None,
-        )?;
+        ).await?;
 
         Ok(())
     }
@@ -293,7 +309,7 @@ impl VikingFS {
     /// # Arguments
     /// * `uri` - Viking URI string
     /// * `recursive` - If true, remove directory and all contents
-    pub fn rm(&self, uri: &str, recursive: bool) -> Result<()> {
+    pub async fn rm(&self, uri: &str, recursive: bool) -> Result<()> {
         let viking_uri = VikingUri::parse(uri)?;
         let path = viking_uri.to_internal_path();
 
@@ -306,7 +322,7 @@ impl VikingFS {
         })?;
 
         // Trigger vector sync deletion
-        self.vector_sync.on_file_deleted(uri)?;
+        self.vector_sync.on_file_deleted(uri).await?;
 
         Ok(())
     }
@@ -318,7 +334,7 @@ impl VikingFS {
     /// # Arguments
     /// * `from` - Source Viking URI
     /// * `to` - Destination Viking URI
-    pub fn mv(&self, from: &str, to: &str) -> Result<()> {
+    pub async fn mv(&self, from: &str, to: &str) -> Result<()> {
         let from_uri = VikingUri::parse(from)?;
         let to_uri = VikingUri::parse(to)?;
         let from_path = from_uri.to_internal_path();
@@ -333,7 +349,7 @@ impl VikingFS {
         fs.rename(&from_path, &to_path)?;
 
         // Trigger vector sync update
-        self.vector_sync.on_file_moved(from, to)?;
+        self.vector_sync.on_file_moved(from, to).await?;
 
         Ok(())
     }
@@ -424,15 +440,15 @@ impl VikingFS {
     /// * `uri` - Viking URI string
     /// * `data` - File content
     /// * `auto_summary` - If true, generate L0 abstract
-    pub fn write_context(&self, uri: &str, data: &[u8], auto_summary: bool) -> Result<()> {
+    pub async fn write_context(&self, uri: &str, data: &[u8], auto_summary: bool) -> Result<()> {
         // Write L2 content
-        self.write(uri, data)?;
+        self.write(uri, data).await?;
 
         if auto_summary {
             // Generate L0 abstract
             let content = String::from_utf8_lossy(data);
 
-            match self.summary_provider.generate_abstract(&content) {
+            match self.summary_provider.generate_abstract(&content).await {
                 Ok(abstract_text) => {
                     // Write .abstract.md using suffix pattern: file.md -> file.md.abstract.md
                     let viking_uri = match VikingUri::parse(uri) {
@@ -451,7 +467,7 @@ impl VikingFS {
                     };
 
                     if let Err(e) =
-                        self.write(&abstract_uri.to_uri_string(), abstract_text.as_bytes())
+                        self.write(&abstract_uri.to_uri_string(), abstract_text.as_bytes()).await
                     {
                         eprintln!("[VikingFS] Failed to write abstract: {}", e);
                     }
@@ -464,7 +480,7 @@ impl VikingFS {
                         "abstract",
                         None,
                         Some(&abstract_text),
-                    ) {
+                    ).await {
                         eprintln!("[VikingFS] Failed to sync abstract to vector store: {}", e);
                     }
                 }
@@ -491,7 +507,7 @@ impl VikingFS {
     /// * `target_uri` - Optional URI prefix to filter results
     /// * `k` - Number of results to return
     /// * `level` - Optional context level filter (0, 1, or 2)
-    pub fn find(
+    pub async fn find(
         &self,
         query: &str,
         target_uri: Option<&str>,
@@ -519,7 +535,7 @@ impl VikingFS {
         };
 
         // Search via vector sync manager
-        let results = self.vector_sync.search(query, k, filters)?;
+        let results = self.vector_sync.search(query, k, filters).await?;
 
         // Convert to SearchResult
         Ok(results
@@ -540,7 +556,7 @@ impl VikingFS {
     /// * `collection` - Collection name
     /// * `query_vector` - Query vector
     /// * `k` - Number of results to return
-    pub fn search(
+    pub async fn search(
         &self,
         collection: &str,
         query_vector: &[f32],
@@ -548,7 +564,7 @@ impl VikingFS {
     ) -> Result<Vec<SearchResult>> {
         let results = self
             .vector_store
-            .search(collection, query_vector, k, None)?;
+            .search(collection, query_vector, k, None).await?;
 
         Ok(results
             .into_iter()
@@ -573,7 +589,7 @@ impl VikingFS {
     ///
     /// # Arguments
     /// * `uri` - Directory URI
-    pub fn commit(&self, uri: &str) -> Result<()> {
+    pub async fn commit(&self, uri: &str) -> Result<()> {
         let viking_uri = VikingUri::parse(uri)?;
         let dir_path = viking_uri.to_internal_path();
 
@@ -583,7 +599,7 @@ impl VikingFS {
             Arc::clone(&self.agfs),
         );
 
-        let result = aggregator.aggregate(&dir_path)?;
+        let result = aggregator.aggregate(&dir_path).await?;
 
         // Log any non-fatal errors
         for error in &result.errors {
@@ -610,16 +626,16 @@ impl VikingFS {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_noop_summary_provider() {
+    #[tokio::test]
+    async fn test_noop_summary_provider() {
         let provider = NoopSummaryProvider;
 
         let text = "This is a long text that should be truncated to 200 characters for the abstract summary.";
-        let abstract_text = provider.generate_abstract(text).unwrap();
+        let abstract_text = provider.generate_abstract(text).await.unwrap();
         assert!(abstract_text.len() <= 200);
 
         let texts = vec!["Text 1".to_string(), "Text 2".to_string()];
-        let overview = provider.generate_overview(&texts).unwrap();
+        let overview = provider.generate_overview(&texts).await.unwrap();
         assert_eq!(overview, "Text 1\n\nText 2");
     }
 

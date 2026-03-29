@@ -8,6 +8,7 @@ use crate::error::{Result, RustVikingError};
 use crate::storage::config::StorageConfig;
 
 /// RocksDB-based KV store
+#[derive(Clone)]
 pub struct RocksKvStore {
     db: Arc<DB>,
 }

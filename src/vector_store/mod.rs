@@ -1,4 +1,5 @@
 pub mod memory;
+pub mod qdrant;
 pub mod rocks;
 pub mod sync;
 pub mod traits;

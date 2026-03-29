@@ -4,6 +4,8 @@
 //! - L0: Abstract (~100 tokens, ~200-400 chars)
 //! - L1: Overview (~2k tokens, ~8000 chars)
 
+use async_trait::async_trait;
+
 use super::SummaryProvider;
 use crate::error::Result;
 
@@ -237,8 +239,9 @@ impl Default for HeuristicSummaryProvider {
     }
 }
 
+#[async_trait]
 impl SummaryProvider for HeuristicSummaryProvider {
-    fn generate_abstract(&self, text: &str) -> Result<String> {
+    async fn generate_abstract(&self, text: &str) -> Result<String> {
         let text = text.trim();
 
         if text.is_empty() {
@@ -272,7 +275,7 @@ impl SummaryProvider for HeuristicSummaryProvider {
         Ok(self.smart_truncate(text, self.max_abstract_chars))
     }
 
-    fn generate_overview(&self, texts: &[String]) -> Result<String> {
+    async fn generate_overview(&self, texts: &[String]) -> Result<String> {
         if texts.is_empty() {
             return Ok("(no content)".to_string());
         }
@@ -432,8 +435,8 @@ This is the real first paragraph.
         assert_eq!(provider.infer_content_type("random.txt"), None);
     }
 
-    #[test]
-    fn test_generate_abstract_markdown() {
+    #[tokio::test]
+    async fn test_generate_abstract_markdown() {
         let provider = HeuristicSummaryProvider::new();
 
         let text = r#"# Project Documentation
@@ -447,45 +450,45 @@ Follow these steps.
 Check the docs.
 "#;
 
-        let abstract_text = provider.generate_abstract(text).unwrap();
+        let abstract_text = provider.generate_abstract(text).await.unwrap();
         assert!(abstract_text.contains("Project Documentation"));
         assert!(abstract_text.contains("Getting Started"));
         assert!(abstract_text.contains("API Reference"));
     }
 
-    #[test]
-    fn test_generate_abstract_plain_text() {
+    #[tokio::test]
+    async fn test_generate_abstract_plain_text() {
         let provider = HeuristicSummaryProvider::new();
 
         let text = "This is the first paragraph of a plain text document. It explains the main concepts. Second paragraph here.";
 
-        let abstract_text = provider.generate_abstract(text).unwrap();
+        let abstract_text = provider.generate_abstract(text).await.unwrap();
         assert!(abstract_text.contains("This is the first paragraph"));
     }
 
-    #[test]
-    fn test_generate_abstract_empty() {
+    #[tokio::test]
+    async fn test_generate_abstract_empty() {
         let provider = HeuristicSummaryProvider::new();
 
-        assert_eq!(provider.generate_abstract("").unwrap(), "(empty document)");
+        assert_eq!(provider.generate_abstract("").await.unwrap(), "(empty document)");
         assert_eq!(
-            provider.generate_abstract("   ").unwrap(),
+            provider.generate_abstract("   ").await.unwrap(),
             "(empty document)"
         );
     }
 
-    #[test]
-    fn test_generate_abstract_long_text() {
+    #[tokio::test]
+    async fn test_generate_abstract_long_text() {
         let provider = HeuristicSummaryProvider::new();
 
         let text = "A. ".repeat(500); // Very long text
 
-        let abstract_text = provider.generate_abstract(&text).unwrap();
+        let abstract_text = provider.generate_abstract(&text).await.unwrap();
         assert!(abstract_text.len() <= 450); // max_abstract_chars + some buffer for "..."
     }
 
-    #[test]
-    fn test_generate_overview() {
+    #[tokio::test]
+    async fn test_generate_overview() {
         let provider = HeuristicSummaryProvider::new();
 
         let texts = vec![
@@ -494,22 +497,22 @@ Check the docs.
             "Third document abstract here.".to_string(),
         ];
 
-        let overview = provider.generate_overview(&texts).unwrap();
+        let overview = provider.generate_overview(&texts).await.unwrap();
         assert!(overview.contains("1. First document"));
         assert!(overview.contains("2. Second document"));
         assert!(overview.contains("3. Third document"));
     }
 
-    #[test]
-    fn test_generate_overview_empty() {
+    #[tokio::test]
+    async fn test_generate_overview_empty() {
         let provider = HeuristicSummaryProvider::new();
 
         let texts: Vec<String> = vec![];
-        assert_eq!(provider.generate_overview(&texts).unwrap(), "(no content)");
+        assert_eq!(provider.generate_overview(&texts).await.unwrap(), "(no content)");
     }
 
-    #[test]
-    fn test_generate_overview_respects_limit() {
+    #[tokio::test]
+    async fn test_generate_overview_respects_limit() {
         let provider = HeuristicSummaryProvider::with_limits(400, 100);
 
         let texts = vec![
@@ -517,7 +520,7 @@ Check the docs.
             "Second abstract here.".to_string(),
         ];
 
-        let overview = provider.generate_overview(&texts).unwrap();
+        let overview = provider.generate_overview(&texts).await.unwrap();
         assert!(overview.len() <= 150); // 100 + buffer for "..."
     }
 
