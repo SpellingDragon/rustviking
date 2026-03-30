@@ -4,6 +4,7 @@
 //! Compares performance across different data scales and dimensions.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use futures::executor::block_on;
 use rustviking::vector_store::memory::MemoryVectorStore;
 use rustviking::vector_store::rocks::RocksDBVectorStore;
 use rustviking::vector_store::traits::VectorStore;
@@ -84,24 +85,14 @@ fn bench_memory_upsert(c: &mut Criterion) {
             BenchmarkId::new(format!("dim_{}", dimension), count),
             &(*count, *dimension),
             |b, (count, dimension)| {
-                let store = MemoryVectorStore::new();
-                let params = IndexParams::default();
-                let collection_name = format!("test_mem_{}_{}", dimension, count);
-                store
-                    .create_collection(&collection_name, *dimension, params)
-                    .unwrap();
-
                 let points = generate_vector_points(*count, *dimension, 0);
 
-                let mut iter_counter = 0u64;
                 b.iter(|| {
-                    // Use a fresh collection for each iteration to avoid conflicts
-                    let iter_collection = format!("{}_{}", collection_name, iter_counter);
-                    store
-                        .create_collection(&iter_collection, *dimension, IndexParams::default())
-                        .unwrap();
-                    store.upsert(&iter_collection, points.clone()).unwrap();
-                    iter_counter += 1;
+                    let store = MemoryVectorStore::new();
+                    let params = IndexParams::default();
+                    let collection_name = format!("bench_mem_{}_{}", dimension, count);
+                    block_on(store.create_collection(&collection_name, *dimension, params)).unwrap();
+                    block_on(store.upsert(&collection_name, points.clone())).unwrap();
                     black_box(&store);
                 });
             },
@@ -119,19 +110,16 @@ fn bench_rocksdb_upsert(c: &mut Criterion) {
             BenchmarkId::new(format!("dim_{}", dimension), count),
             &(*count, *dimension),
             |b, (count, dimension)| {
-                let temp_dir = TempDir::new().unwrap();
-                let store =
-                    RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-                let params = IndexParams::default();
-                let collection_name = format!("test_rocks_{}_{}", dimension, count);
-                store
-                    .create_collection(&collection_name, *dimension, params)
-                    .unwrap();
-
                 let points = generate_vector_points(*count, *dimension, 0);
 
                 b.iter(|| {
-                    store.upsert(&collection_name, points.clone()).unwrap();
+                    let temp_dir = TempDir::new().unwrap();
+                    let store =
+                        RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+                    let params = IndexParams::default();
+                    let collection_name = format!("bench_rocks_{}_{}", dimension, count);
+                    block_on(store.create_collection(&collection_name, *dimension, params)).unwrap();
+                    block_on(store.upsert(&collection_name, points.clone())).unwrap();
                     black_box(&store);
                 });
             },
@@ -162,21 +150,16 @@ fn bench_memory_search(c: &mut Criterion) {
             BenchmarkId::new(format!("dim_{}_size_{}", dimension, data_size), "top10"),
             &(*data_size, *dimension),
             |b, (data_size, dimension)| {
-                let store = MemoryVectorStore::new();
-                let params = IndexParams::default();
-                let collection_name = format!("search_mem_{}_{}", dimension, data_size);
-                store
-                    .create_collection(&collection_name, *dimension, params)
-                    .unwrap();
-
-                // Pre-populate with data
                 let points = generate_vector_points(*data_size, *dimension, 0);
-                store.upsert(&collection_name, points).unwrap();
-
                 let query = generate_query_vector(*dimension, RANDOM_SEED);
 
                 b.iter(|| {
-                    let results = store.search(&collection_name, &query, 10, None).unwrap();
+                    let store = MemoryVectorStore::new();
+                    let params = IndexParams::default();
+                    let collection_name = format!("bench_mem_search_{}_{}", dimension, data_size);
+                    block_on(store.create_collection(&collection_name, *dimension, params)).unwrap();
+                    block_on(store.upsert(&collection_name, points.clone())).unwrap();
+                    let results = block_on(store.search(&collection_name, &query, 10, None)).unwrap();
                     black_box(results);
                 });
             },
@@ -203,23 +186,18 @@ fn bench_rocksdb_search(c: &mut Criterion) {
             BenchmarkId::new(format!("dim_{}_size_{}", dimension, data_size), "top10"),
             &(*data_size, *dimension),
             |b, (data_size, dimension)| {
-                let temp_dir = TempDir::new().unwrap();
-                let store =
-                    RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-                let params = IndexParams::default();
-                let collection_name = format!("search_rocks_{}_{}", dimension, data_size);
-                store
-                    .create_collection(&collection_name, *dimension, params)
-                    .unwrap();
-
-                // Pre-populate with data
                 let points = generate_vector_points(*data_size, *dimension, 0);
-                store.upsert(&collection_name, points).unwrap();
-
                 let query = generate_query_vector(*dimension, RANDOM_SEED);
 
                 b.iter(|| {
-                    let results = store.search(&collection_name, &query, 10, None).unwrap();
+                    let temp_dir = TempDir::new().unwrap();
+                    let store =
+                        RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+                    let params = IndexParams::default();
+                    let collection_name = format!("bench_rocks_search_{}_{}", dimension, data_size);
+                    block_on(store.create_collection(&collection_name, *dimension, params)).unwrap();
+                    block_on(store.upsert(&collection_name, points.clone())).unwrap();
+                    let results = block_on(store.search(&collection_name, &query, 10, None)).unwrap();
                     black_box(results);
                 });
             },
@@ -238,24 +216,23 @@ fn bench_memory_delete(c: &mut Criterion) {
 
     // Single delete benchmark
     group.bench_function("single_delete", |b| {
-        let store = MemoryVectorStore::new();
-        let params = IndexParams::default();
-        store.create_collection("del_test", 128, params).unwrap();
-
-        // Pre-populate
         let points = generate_vector_points(1000, 128, 0);
-        store.upsert("del_test", points).unwrap();
 
-        let mut counter = 0u64;
         b.iter(|| {
+            let store = MemoryVectorStore::new();
+            let params = IndexParams::default();
+            block_on(store.create_collection("del_test", 128, params)).unwrap();
+            block_on(store.upsert("del_test", points.clone())).unwrap();
+
+            let mut counter = 0u64;
             let id = format!("vec_{}", counter % 1000);
-            store.delete("del_test", &id).unwrap();
+            block_on(store.delete("del_test", &id)).unwrap();
             counter += 1;
 
             // Re-insert to maintain data for next iteration
             let vector = generate_random_vector(128, counter);
             let point = create_vector_point(&id, vector, &format!("/test/{}", id));
-            store.upsert("del_test", vec![point]).unwrap();
+            block_on(store.upsert("del_test", vec![point])).unwrap();
 
             black_box(&store);
         });
@@ -263,12 +240,6 @@ fn bench_memory_delete(c: &mut Criterion) {
 
     // Delete by URI prefix benchmark
     group.bench_function("delete_by_uri_prefix", |b| {
-        let store = MemoryVectorStore::new();
-        let params = IndexParams::default();
-        store
-            .create_collection("del_prefix_test", 128, params)
-            .unwrap();
-
         // Pre-populate with prefixed URIs
         let points: Vec<VectorPoint> = (0..1000)
             .map(|i| {
@@ -279,13 +250,15 @@ fn bench_memory_delete(c: &mut Criterion) {
                 create_vector_point(&id, vector, &uri)
             })
             .collect();
-        store.upsert("del_prefix_test", points).unwrap();
 
         b.iter(|| {
+            let store = MemoryVectorStore::new();
+            let params = IndexParams::default();
+            block_on(store.create_collection("del_prefix_test", 128, params)).unwrap();
+            block_on(store.upsert("del_prefix_test", points.clone())).unwrap();
+
             // Delete docs prefix (will delete 500 items)
-            store
-                .delete_by_uri_prefix("del_prefix_test", "/docs")
-                .unwrap();
+            block_on(store.delete_by_uri_prefix("del_prefix_test", "/docs")).unwrap();
 
             // Re-populate docs for next iteration
             let new_points: Vec<VectorPoint> = (0..500)
@@ -296,7 +269,7 @@ fn bench_memory_delete(c: &mut Criterion) {
                     create_vector_point(&id, vector, &uri)
                 })
                 .collect();
-            store.upsert("del_prefix_test", new_points).unwrap();
+            block_on(store.upsert("del_prefix_test", new_points)).unwrap();
 
             black_box(&store);
         });
@@ -310,25 +283,25 @@ fn bench_rocksdb_delete(c: &mut Criterion) {
 
     // Single delete benchmark
     group.bench_function("single_delete", |b| {
-        let temp_dir = TempDir::new().unwrap();
-        let store = RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-        let params = IndexParams::default();
-        store.create_collection("del_test", 128, params).unwrap();
-
-        // Pre-populate
         let points = generate_vector_points(1000, 128, 0);
-        store.upsert("del_test", points).unwrap();
 
-        let mut counter = 0u64;
         b.iter(|| {
+            let temp_dir = TempDir::new().unwrap();
+            let store =
+                RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+            let params = IndexParams::default();
+            block_on(store.create_collection("del_test", 128, params)).unwrap();
+            block_on(store.upsert("del_test", points.clone())).unwrap();
+
+            let mut counter = 0u64;
             let id = format!("vec_{}", counter % 1000);
-            store.delete("del_test", &id).unwrap();
+            block_on(store.delete("del_test", &id)).unwrap();
             counter += 1;
 
             // Re-insert to maintain data for next iteration
             let vector = generate_random_vector(128, counter);
             let point = create_vector_point(&id, vector, &format!("/test/{}", id));
-            store.upsert("del_test", vec![point]).unwrap();
+            block_on(store.upsert("del_test", vec![point])).unwrap();
 
             black_box(&store);
         });
@@ -336,13 +309,6 @@ fn bench_rocksdb_delete(c: &mut Criterion) {
 
     // Delete by URI prefix benchmark
     group.bench_function("delete_by_uri_prefix", |b| {
-        let temp_dir = TempDir::new().unwrap();
-        let store = RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-        let params = IndexParams::default();
-        store
-            .create_collection("del_prefix_test", 128, params)
-            .unwrap();
-
         // Pre-populate with prefixed URIs
         let points: Vec<VectorPoint> = (0..1000)
             .map(|i| {
@@ -353,13 +319,17 @@ fn bench_rocksdb_delete(c: &mut Criterion) {
                 create_vector_point(&id, vector, &uri)
             })
             .collect();
-        store.upsert("del_prefix_test", points).unwrap();
 
         b.iter(|| {
+            let temp_dir = TempDir::new().unwrap();
+            let store =
+                RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+            let params = IndexParams::default();
+            block_on(store.create_collection("del_prefix_test", 128, params)).unwrap();
+            block_on(store.upsert("del_prefix_test", points.clone())).unwrap();
+
             // Delete docs prefix (will delete 500 items)
-            store
-                .delete_by_uri_prefix("del_prefix_test", "/docs")
-                .unwrap();
+            block_on(store.delete_by_uri_prefix("del_prefix_test", "/docs")).unwrap();
 
             // Re-populate docs for next iteration
             let new_points: Vec<VectorPoint> = (0..500)
@@ -370,7 +340,7 @@ fn bench_rocksdb_delete(c: &mut Criterion) {
                     create_vector_point(&id, vector, &uri)
                 })
                 .collect();
-            store.upsert("del_prefix_test", new_points).unwrap();
+            block_on(store.upsert("del_prefix_test", new_points)).unwrap();
 
             black_box(&store);
         });
@@ -388,34 +358,28 @@ fn bench_upsert_comparison(c: &mut Criterion) {
 
     for count in [100, 1000, 10000].iter() {
         let dimension = 128;
+        let points = generate_vector_points(*count, dimension, 0);
 
         // MemoryVectorStore
         group.bench_with_input(BenchmarkId::new("memory", count), count, |b, &count| {
-            let store = MemoryVectorStore::new();
-            let params = IndexParams::default();
-            store
-                .create_collection("comp_mem", dimension, params)
-                .unwrap();
-            let points = generate_vector_points(count, dimension, 0);
-
             b.iter(|| {
-                store.upsert("comp_mem", points.clone()).unwrap();
+                let store = MemoryVectorStore::new();
+                let params = IndexParams::default();
+                block_on(store.create_collection("comp_mem", dimension, params)).unwrap();
+                block_on(store.upsert("comp_mem", points.clone())).unwrap();
                 black_box(&store);
             });
         });
 
         // RocksDBVectorStore
         group.bench_with_input(BenchmarkId::new("rocksdb", count), count, |b, &count| {
-            let temp_dir = TempDir::new().unwrap();
-            let store = RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-            let params = IndexParams::default();
-            store
-                .create_collection("comp_rocks", dimension, params)
-                .unwrap();
-            let points = generate_vector_points(count, dimension, 0);
-
             b.iter(|| {
-                store.upsert("comp_rocks", points.clone()).unwrap();
+                let temp_dir = TempDir::new().unwrap();
+                let store =
+                    RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+                let params = IndexParams::default();
+                block_on(store.create_collection("comp_rocks", dimension, params)).unwrap();
+                block_on(store.upsert("comp_rocks", points.clone())).unwrap();
                 black_box(&store);
             });
         });
@@ -430,22 +394,19 @@ fn bench_search_comparison(c: &mut Criterion) {
     for data_size in [1000, 10000].iter() {
         let dimension = 128;
         let query = generate_query_vector(dimension, RANDOM_SEED);
+        let points = generate_vector_points(*data_size, dimension, 0);
 
         // MemoryVectorStore
         group.bench_with_input(
             BenchmarkId::new("memory", data_size),
             data_size,
             |b, &data_size| {
-                let store = MemoryVectorStore::new();
-                let params = IndexParams::default();
-                store
-                    .create_collection("search_comp_mem", dimension, params)
-                    .unwrap();
-                let points = generate_vector_points(data_size, dimension, 0);
-                store.upsert("search_comp_mem", points).unwrap();
-
                 b.iter(|| {
-                    let results = store.search("search_comp_mem", &query, 10, None).unwrap();
+                    let store = MemoryVectorStore::new();
+                    let params = IndexParams::default();
+                    block_on(store.create_collection("search_comp_mem", dimension, params)).unwrap();
+                    block_on(store.upsert("search_comp_mem", points.clone())).unwrap();
+                    let results = block_on(store.search("search_comp_mem", &query, 10, None)).unwrap();
                     black_box(results);
                 });
             },
@@ -456,18 +417,14 @@ fn bench_search_comparison(c: &mut Criterion) {
             BenchmarkId::new("rocksdb", data_size),
             data_size,
             |b, &data_size| {
-                let temp_dir = TempDir::new().unwrap();
-                let store =
-                    RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-                let params = IndexParams::default();
-                store
-                    .create_collection("search_comp_rocks", dimension, params)
-                    .unwrap();
-                let points = generate_vector_points(data_size, dimension, 0);
-                store.upsert("search_comp_rocks", points).unwrap();
-
                 b.iter(|| {
-                    let results = store.search("search_comp_rocks", &query, 10, None).unwrap();
+                    let temp_dir = TempDir::new().unwrap();
+                    let store =
+                        RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+                    let params = IndexParams::default();
+                    block_on(store.create_collection("search_comp_rocks", dimension, params)).unwrap();
+                    block_on(store.upsert("search_comp_rocks", points.clone())).unwrap();
+                    let results = block_on(store.search("search_comp_rocks", &query, 10, None)).unwrap();
                     black_box(results);
                 });
             },
