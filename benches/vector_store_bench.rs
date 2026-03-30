@@ -401,42 +401,31 @@ fn bench_search_comparison(c: &mut Criterion) {
         let points = generate_vector_points(*data_size, dimension, 0);
 
         // MemoryVectorStore
-        group.bench_with_input(
-            BenchmarkId::new("memory", data_size),
-            data_size,
-            |b, _| {
-                b.iter(|| {
-                    let store = MemoryVectorStore::new();
-                    let params = IndexParams::default();
-                    block_on(store.create_collection("search_comp_mem", dimension, params))
-                        .unwrap();
-                    block_on(store.upsert("search_comp_mem", points.clone())).unwrap();
-                    let results =
-                        block_on(store.search("search_comp_mem", &query, 10, None)).unwrap();
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("memory", data_size), data_size, |b, _| {
+            b.iter(|| {
+                let store = MemoryVectorStore::new();
+                let params = IndexParams::default();
+                block_on(store.create_collection("search_comp_mem", dimension, params)).unwrap();
+                block_on(store.upsert("search_comp_mem", points.clone())).unwrap();
+                let results = block_on(store.search("search_comp_mem", &query, 10, None)).unwrap();
+                black_box(results);
+            });
+        });
 
         // RocksDBVectorStore
-        group.bench_with_input(
-            BenchmarkId::new("rocksdb", data_size),
-            data_size,
-            |b, _| {
-                b.iter(|| {
-                    let temp_dir = TempDir::new().unwrap();
-                    let store =
-                        RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
-                    let params = IndexParams::default();
-                    block_on(store.create_collection("search_comp_rocks", dimension, params))
-                        .unwrap();
-                    block_on(store.upsert("search_comp_rocks", points.clone())).unwrap();
-                    let results =
-                        block_on(store.search("search_comp_rocks", &query, 10, None)).unwrap();
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("rocksdb", data_size), data_size, |b, _| {
+            b.iter(|| {
+                let temp_dir = TempDir::new().unwrap();
+                let store =
+                    RocksDBVectorStore::with_path(temp_dir.path().to_str().unwrap()).unwrap();
+                let params = IndexParams::default();
+                block_on(store.create_collection("search_comp_rocks", dimension, params)).unwrap();
+                block_on(store.upsert("search_comp_rocks", points.clone())).unwrap();
+                let results =
+                    block_on(store.search("search_comp_rocks", &query, 10, None)).unwrap();
+                black_box(results);
+            });
+        });
     }
 
     group.finish();
