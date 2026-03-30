@@ -365,7 +365,7 @@ fn bench_upsert_comparison(c: &mut Criterion) {
         let points = generate_vector_points(*count, dimension, 0);
 
         // MemoryVectorStore
-        group.bench_with_input(BenchmarkId::new("memory", count), count, |b, &count| {
+        group.bench_with_input(BenchmarkId::new("memory", count), count, |b, _| {
             b.iter(|| {
                 let store = MemoryVectorStore::new();
                 let params = IndexParams::default();
@@ -376,7 +376,7 @@ fn bench_upsert_comparison(c: &mut Criterion) {
         });
 
         // RocksDBVectorStore
-        group.bench_with_input(BenchmarkId::new("rocksdb", count), count, |b, &count| {
+        group.bench_with_input(BenchmarkId::new("rocksdb", count), count, |b, _| {
             b.iter(|| {
                 let temp_dir = TempDir::new().unwrap();
                 let store =
@@ -404,7 +404,7 @@ fn bench_search_comparison(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("memory", data_size),
             data_size,
-            |b, &data_size| {
+            |b, _| {
                 b.iter(|| {
                     let store = MemoryVectorStore::new();
                     let params = IndexParams::default();
@@ -422,7 +422,7 @@ fn bench_search_comparison(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("rocksdb", data_size),
             data_size,
-            |b, &data_size| {
+            |b, _| {
                 b.iter(|| {
                     let temp_dir = TempDir::new().unwrap();
                     let store =
