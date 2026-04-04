@@ -34,13 +34,22 @@
 | **统一 JSON 输出** | ✅ Ready | 所有 CLI 命令返回统一 CliResponse JSON 格式 |
 | **CLI Bench 命令** | ✅ Ready | 内置性能测试：kv-write/kv-read/vector-search/bitmap-ops |
 | **KV Batch 操作** | ✅ Ready | 支持从文件或 stdin 批量执行 put/delete 操作 |
+| **CLI 错误分类** | ✅ Ready | CliInput 错误类型用于用户输入错误处理 |
 | **OpenAI Embedding** | ✅ Ready | Compatible with OpenAI API embedding services |
 | **SIMD Optimization** | ✅ Ready | ARM NEON / x86 AVX2/FMA acceleration (4-8x speedup) |
-| **Qdrant Vector Store** | 🆕 New | Async VectorStore adapter for Qdrant cloud/local |
+| **Qdrant Vector Store** | ✅ Ready | Async VectorStore adapter for Qdrant cloud/local |
 | **Async VectorStore** | ✅ Ready | OpenViking CollectionAdapter pattern with `async_trait` |
 | **S3FS Plugin** | ❌ Missing | S3-compatible storage backend |
 | **SQLFS Plugin** | ❌ Missing | SQL database storage backend |
 | **HTTP/gRPC Service** | ❌ Missing | REST API and gRPC interface |
+
+### v0.2.0 Highlights
+
+本次版本更新重点：
+- **CLI 体验优化**：统一 JSON 响应格式 (CliResponse)，标准化退出码 (0=成功, 1=用户错误, 2=系统错误)
+- **批量操作支持**：新增 `kv batch` 命令，支持从文件或 stdin 批量执行 put/delete 操作
+- **性能测试内置化**：新增 `bench` 命令，无需外部工具即可测试 kv-write/kv-read/vector-search/bitmap-ops
+- **测试覆盖率提升**：新增约 100 个测试用例，覆盖 AGFS、索引、KV 存储等核心功能
 
 ### Differences from OpenViking
 
@@ -226,9 +235,39 @@ See `benches/compute_bench.rs` for benchmark comparisons between SIMD and scalar
 | `kv del` | Delete key | `rustviking kv del -k "user:1:name"` |
 | `kv scan` | Prefix scan | `rustviking kv scan --prefix "user:" --limit 100` |
 | `kv batch` | Batch operations | `rustviking kv batch -f ops.json` or `cat ops.json \| rustviking kv batch -f -` |
+
+### KV Batch Operations
+
+批量操作 JSON 格式：
+
+```json
+[
+  {"op": "put", "key": "user:1:name", "value": "Alice"},
+  {"op": "put", "key": "user:1:email", "value": "alice@example.com"},
+  {"op": "del", "key": "user:2:name"},
+  {"op": "put", "key": "session:active", "value": "true"}
+]
+```
+
+支持的批量操作：
+- `put`: 写入键值对
+- `del`: 删除键
 | `index insert` | Insert vector | `rustviking index insert -i 1 --vector 0.1,0.2 -l 2` |
 | `index search` | Vector search | `rustviking index search -q 0.1,0.2 -k 10` |
 | `bench` | Benchmark tests | `rustviking bench kv-write -c 10000` |
+
+### Benchmark Commands
+
+| Subcommand | Description | Example |
+|------------|-------------|---------|
+| `kv-write` | KV write throughput | `rustviking bench kv-write -c 10000` |
+| `kv-read` | KV read throughput | `rustviking bench kv-read -c 10000` |
+| `vector-search` | Vector search latency | `rustviking bench vector-search -c 1000` |
+| `bitmap-ops` | Bitmap operations | `rustviking bench bitmap-ops -c 10000` |
+
+Benchmark options:
+- `-c, --count`: Number of operations (default: 1000)
+- `--latency`: Show latency statistics (P50/P95/P99)
 
 ---
 
