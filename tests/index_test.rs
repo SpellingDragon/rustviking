@@ -429,7 +429,10 @@ fn test_hnsw_zero_vector() {
 
     // Search with zero vector - should find the zero vector
     let results = index.search(&[0.0, 0.0, 0.0], 3, None).unwrap();
-    assert!(!results.is_empty(), "Search should return at least one result");
+    assert!(
+        !results.is_empty(),
+        "Search should return at least one result"
+    );
     // The zero vector should be the closest match (distance = 0)
     assert_eq!(results[0].id, 0, "Zero vector should be the closest match");
 }
