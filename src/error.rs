@@ -2,6 +2,31 @@
 
 use thiserror::Error;
 
+/// Error classification for exit codes
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// User error (invalid arguments, resource not found, etc.) - exit code 1
+    UserError,
+    /// System error (IO error, storage failure, etc.) - exit code 2
+    SystemError,
+}
+
+impl ErrorKind {
+    /// Get the exit code for this error kind
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            ErrorKind::UserError => 1,
+            ErrorKind::SystemError => 2,
+        }
+    }
+}
+
+/// Trait for classifying errors
+pub trait ClassifyError {
+    /// Classify this error into user error or system error
+    fn classify(&self) -> ErrorKind;
+}
+
 /// RustViking 错误类型
 #[derive(Error, Debug)]
 pub enum RustVikingError {
@@ -77,6 +102,41 @@ pub enum RustVikingError {
     // VikingFS 相关（为 Task 2 预留）
     #[error("VikingFS error: {0}")]
     VikingFs(String),
+
+    // CLI 输入相关
+    #[error("Invalid CLI input: {0}")]
+    CliInput(String),
+}
+
+impl ClassifyError for RustVikingError {
+    fn classify(&self) -> ErrorKind {
+        match self {
+            // User errors - exit code 1
+            RustVikingError::MountNotFound(_) => ErrorKind::UserError,
+            RustVikingError::InvalidDimension { .. } => ErrorKind::UserError,
+            RustVikingError::InvalidUri(_) => ErrorKind::UserError,
+            RustVikingError::NotFound(_) => ErrorKind::UserError,
+            RustVikingError::AlreadyExists(_) => ErrorKind::UserError,
+            RustVikingError::PermissionDenied(_) => ErrorKind::UserError,
+            RustVikingError::CollectionNotFound(_) => ErrorKind::UserError,
+            RustVikingError::PluginNotFound(_) => ErrorKind::UserError,
+            RustVikingError::CliInput(_) => ErrorKind::UserError,
+
+            // System errors - exit code 2
+            RustVikingError::Agfs(_) => ErrorKind::SystemError,
+            RustVikingError::Storage(_) => ErrorKind::SystemError,
+            RustVikingError::RocksDb(_) => ErrorKind::SystemError,
+            RustVikingError::Index(_) => ErrorKind::SystemError,
+            RustVikingError::Config(_) => ErrorKind::SystemError,
+            RustVikingError::Embedding(_) => ErrorKind::SystemError,
+            RustVikingError::VectorStore(_) => ErrorKind::SystemError,
+            RustVikingError::Io(_) => ErrorKind::SystemError,
+            RustVikingError::Serialization(_) => ErrorKind::SystemError,
+            RustVikingError::Internal(_) => ErrorKind::SystemError,
+            RustVikingError::Summary(_) => ErrorKind::SystemError,
+            RustVikingError::VikingFs(_) => ErrorKind::SystemError,
+        }
+    }
 }
 
 /// Result type alias

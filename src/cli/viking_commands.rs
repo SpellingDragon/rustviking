@@ -1,8 +1,10 @@
 //! VikingFS command handlers
 
 use crate::cli::commands::OutputFormat;
+use crate::cli::{success, CliResponse};
 use crate::error::Result;
 use crate::vikingfs::VikingFS;
+use serde::Serialize;
 
 /// 解析 level 字符串为 u8
 fn parse_level(level: &str) -> Option<u8> {
@@ -14,29 +16,9 @@ fn parse_level(level: &str) -> Option<u8> {
     }
 }
 
-/// 输出 JSON 格式结果
-fn output_json(status: &str, data: serde_json::Value) {
-    let output = serde_json::json!({
-        "status": status,
-        "data": data,
-    });
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&output).unwrap_or_default()
-    );
-}
-
-/// 输出错误信息（保留供将来使用）
-#[allow(dead_code)]
-fn output_error(message: &str) {
-    let output = serde_json::json!({
-        "status": "error",
-        "message": message,
-    });
-    eprintln!(
-        "{}",
-        serde_json::to_string_pretty(&output).unwrap_or_default()
-    );
+/// Output response in JSON format
+fn output_json_response<T: Serialize>(response: &CliResponse<T>) {
+    println!("{}", response.to_json_pretty());
 }
 
 /// 输出纯文本内容
@@ -71,10 +53,12 @@ pub async fn handle_read(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({"uri": uri, "level": level, "content": content}),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "level": level,
+                "content": content
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -101,14 +85,12 @@ pub async fn handle_write(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({
-                    "uri": uri,
-                    "auto_summary": auto_summary,
-                    "bytes_written": data.len()
-                }),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "auto_summary": auto_summary,
+                "bytes_written": data.len()
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Written {} bytes to {}", data.len(), uri);
@@ -129,7 +111,11 @@ pub async fn handle_mkdir(
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "operation": "mkdir"}));
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "operation": "mkdir"
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Created directory: {}", uri);
@@ -151,14 +137,12 @@ pub async fn handle_rm(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({
-                    "uri": uri,
-                    "recursive": recursive,
-                    "operation": "rm"
-                }),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "recursive": recursive,
+                "operation": "rm"
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Removed: {} (recursive: {})", uri, recursive);
@@ -180,14 +164,12 @@ pub async fn handle_mv(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({
-                    "from": from,
-                    "to": to,
-                    "operation": "mv"
-                }),
-            );
+            let response = success(serde_json::json!({
+                "from": from,
+                "to": to,
+                "operation": "mv"
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Moved: {} -> {}", from, to);
@@ -222,10 +204,11 @@ pub async fn handle_ls(
                     })
                 })
                 .collect();
-            output_json(
-                "ok",
-                serde_json::json!({"uri": uri, "entries": entries_json}),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "entries": entries_json
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             for entry in &entries {
@@ -258,18 +241,16 @@ pub async fn handle_stat(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({
-                    "uri": uri,
-                    "name": info.name,
-                    "size": info.size,
-                    "is_dir": info.is_dir,
-                    "mode": format!("{:o}", info.mode),
-                    "created_at": info.created_at,
-                    "updated_at": info.updated_at,
-                }),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "name": info.name,
+                "size": info.size,
+                "is_dir": info.is_dir,
+                "mode": format!("{:o}", info.mode),
+                "created_at": info.created_at,
+                "updated_at": info.updated_at,
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Name: {}", info.name);
@@ -303,10 +284,12 @@ pub async fn handle_abstract(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({"uri": uri, "level": "L0", "abstract": content}),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "level": "L0",
+                "abstract": content
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -327,10 +310,12 @@ pub async fn handle_overview(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({"uri": uri, "level": "L1", "overview": content}),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "level": "L1",
+                "overview": content
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -352,10 +337,12 @@ pub async fn handle_detail(
 
     match output_format {
         OutputFormat::Json => {
-            output_json(
-                "ok",
-                serde_json::json!({"uri": uri, "level": "L2", "content": content.to_string()}),
-            );
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "level": "L2",
+                "content": content.to_string()
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             output_plain(&content);
@@ -392,15 +379,13 @@ pub async fn handle_find(
                     })
                 })
                 .collect();
-            output_json(
-                "ok",
-                serde_json::json!({
-                    "query": query,
-                    "target": target,
-                    "level": level,
-                    "results": results_json
-                }),
-            );
+            let response = success(serde_json::json!({
+                "query": query,
+                "target": target,
+                "level": level,
+                "results": results_json
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Search results for: {}", query);
@@ -451,7 +436,11 @@ pub async fn handle_commit(
 
     match output_format {
         OutputFormat::Json => {
-            output_json("ok", serde_json::json!({"uri": uri, "operation": "commit"}));
+            let response = success(serde_json::json!({
+                "uri": uri,
+                "operation": "commit"
+            }));
+            output_json_response(&response);
         }
         OutputFormat::Plain => {
             println!("Committed directory: {}", uri);

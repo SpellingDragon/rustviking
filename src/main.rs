@@ -5,11 +5,13 @@ use clap::Parser;
 use rustviking::agfs::MountableFS;
 use rustviking::cli::commands::*;
 use rustviking::cli::{fs_commands, index_commands, store_commands, viking_commands};
+use rustviking::cli::{error, CliResponse};
 use rustviking::config::Config;
 use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::openai::OpenAIEmbeddingProvider;
 use rustviking::embedding::types::EmbeddingConfig;
 use rustviking::embedding::EmbeddingProvider;
+use rustviking::error::ClassifyError;
 use rustviking::index::{IvfIndex, IvfParams, MetricType};
 use rustviking::plugins::PluginRegistry;
 use rustviking::storage::RocksKvStore;
@@ -19,26 +21,28 @@ use rustviking::vikingfs::VikingFS;
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
+    // Initialize tracing - logs go to stderr
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("rustviking=info".parse().unwrap()),
         )
+        .with_writer(std::io::stderr)
         .init();
 
     let cli = Cli::parse();
 
     if let Err(e) = run(cli).await {
-        let error_output = serde_json::json!({
-            "status": "error",
-            "message": e.to_string(),
-        });
-        eprintln!(
-            "{}",
-            serde_json::to_string_pretty(&error_output).unwrap_or_default()
-        );
-        std::process::exit(1);
+        // Output error to stderr for human-readable logs
+        tracing::error!("{}", e);
+
+        // In JSON mode, output valid JSON to stdout
+        let response: CliResponse<()> = error(e.to_string());
+        println!("{}", response.to_json_pretty());
+
+        // Use classified exit code
+        let exit_code = e.classify().exit_code();
+        std::process::exit(exit_code);
     }
 }
 
@@ -224,6 +228,7 @@ fn handle_kv_command(
         KvOperation::Scan { prefix, limit } => {
             store_commands::exec_kv_scan(store, &prefix, limit, format)
         }
+        KvOperation::Batch { file } => store_commands::exec_kv_batch(store, &file, format),
     }
 }
 
@@ -247,44 +252,37 @@ fn handle_index_command(
 fn handle_server_command(op: ServerOperation) -> rustviking::error::Result<()> {
     match op {
         ServerOperation::Start { port } => {
-            println!(
-                "{}",
-                serde_json::json!({"status": "info", "message": format!("Server mode not yet implemented. Port: {}", port)})
-            );
+            let response = rustviking::cli::success(serde_json::json!({
+                "message": format!("Server mode not yet implemented. Port: {}", port),
+                "port": port
+            }));
+            println!("{}", response.to_json_pretty());
             Ok(())
         }
         ServerOperation::Stop {} => {
-            println!(
-                "{}",
-                serde_json::json!({"status": "info", "message": "Server stop not yet implemented"})
-            );
+            let response = rustviking::cli::success(serde_json::json!({
+                "message": "Server stop not yet implemented"
+            }));
+            println!("{}", response.to_json_pretty());
             Ok(())
         }
         ServerOperation::Status {} => {
-            println!(
-                "{}",
-                serde_json::json!({"status": "info", "message": "Server status not yet implemented"})
-            );
+            let response = rustviking::cli::success(serde_json::json!({
+                "message": "Server status not yet implemented"
+            }));
+            println!("{}", response.to_json_pretty());
             Ok(())
         }
     }
 }
 
 fn handle_bench_command(test: BenchTest, count: usize) -> rustviking::error::Result<()> {
-    println!(
-        "{}",
-        serde_json::json!({
-            "status": "info",
-            "message": format!("Benchmark not yet implemented. Test: {:?}, Count: {}",
-                match test {
-                    BenchTest::KvWrite => "kv-write",
-                    BenchTest::KvRead => "kv-read",
-                    BenchTest::VectorSearch => "vector-search",
-                    BenchTest::BitmapOps => "bitmap-ops",
-                },
-                count
-            )
-        })
-    );
+    let response = match test {
+        BenchTest::KvWrite => rustviking::cli::bench_commands::bench_kv_write(count)?,
+        BenchTest::KvRead => rustviking::cli::bench_commands::bench_kv_read(count)?,
+        BenchTest::VectorSearch => rustviking::cli::bench_commands::bench_vector_search(count)?,
+        BenchTest::BitmapOps => rustviking::cli::bench_commands::bench_bitmap_ops(count)?,
+    };
+    println!("{}", response.to_json_pretty());
     Ok(())
 }

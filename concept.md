@@ -1071,6 +1071,21 @@ impl VectorIndex for IvfPqIndex {
 graph TB
     CLI["rustviking"]
 
+    subgraph "VikingFS 顶层命令"
+        VK1["read"]
+        VK2["write"]
+        VK3["mkdir"]
+        VK4["rm"]
+        VK5["mv"]
+        VK6["ls"]
+        VK7["stat"]
+        VK8["abstract"]
+        VK9["overview"]
+        VK10["detail"]
+        VK11["find"]
+        VK12["commit"]
+    end
+
     subgraph "文件系统命令"
         FS1["fs mkdir"]
         FS2["fs ls"]
@@ -1098,10 +1113,11 @@ graph TB
     subgraph "管理命令"
         MG1["server start"]
         MG2["server stop"]
-        MG3["config show"]
-        MG4["benchmark"]
+        MG3["server status"]
+        MG4["bench"]
     end
 
+    CLI --> VK1
     CLI --> FS1
     CLI --> ST1
     CLI --> IDX1
@@ -1136,31 +1152,124 @@ pub enum Commands {
         #[command(subcommand)]
         operation: FsOperation,
     },
-    
+
     /// 键值存储操作
     Kv {
         #[command(subcommand)]
         operation: KvOperation,
     },
-    
-    /// 索引操作
+
+    /// 向量索引操作
     Index {
         #[command(subcommand)]
         operation: IndexOperation,
     },
-    
+
     /// 服务器管理
     Server {
         #[command(subcommand)]
         operation: ServerOperation,
     },
-    
+
     /// 基准测试
     Bench {
+        /// 测试类型
         #[arg(value_enum)]
         test: BenchTest,
+        /// 操作数量
         #[arg(short, long, default_value = "1000")]
         count: usize,
+    },
+
+    // === VikingFS 语义层命令 ===
+    /// 读取文件内容（支持 L0/L1/L2 级别）
+    Read {
+        #[arg(help = "Viking URI")]
+        uri: String,
+        #[arg(short, long, help = "读取级别: L0, L1, L2")]
+        level: Option<String>,
+    },
+
+    /// 写入文件（自动 embedding + 索引）
+    Write {
+        #[arg(help = "Viking URI")]
+        uri: String,
+        #[arg(short, long)]
+        data: String,
+        #[arg(long, default_value = "false", help = "自动生成摘要")]
+        auto_summary: bool,
+    },
+
+    /// 创建目录
+    Mkdir {
+        #[arg(help = "Viking URI")]
+        uri: String,
+    },
+
+    /// 删除文件/目录
+    Rm {
+        #[arg(help = "Viking URI")]
+        uri: String,
+        #[arg(short, long)]
+        recursive: bool,
+    },
+
+    /// 移动/重命名
+    Mv {
+        #[arg(help = "源 Viking URI")]
+        from: String,
+        #[arg(help = "目标 Viking URI")]
+        to: String,
+    },
+
+    /// 列出目录内容
+    Ls {
+        #[arg(help = "Viking URI")]
+        uri: String,
+        #[arg(short, long)]
+        recursive: bool,
+    },
+
+    /// 获取文件信息
+    Stat {
+        #[arg(help = "Viking URI")]
+        uri: String,
+    },
+
+    /// 读取抽象摘要 (L0)
+    Abstract {
+        #[arg(help = "Viking URI")]
+        uri: String,
+    },
+
+    /// 读取概述摘要 (L1)
+    Overview {
+        #[arg(help = "Viking URI")]
+        uri: String,
+    },
+
+    /// 读取完整内容 (L2)
+    Detail {
+        #[arg(help = "Viking URI")]
+        uri: String,
+    },
+
+    /// 语义搜索（文本输入，自动 embedding）
+    Find {
+        #[arg(help = "搜索查询文本")]
+        query: String,
+        #[arg(short, long, help = "目标 URI 范围")]
+        target: Option<String>,
+        #[arg(short, long, default_value = "10")]
+        k: usize,
+        #[arg(short, long, help = "搜索级别: L0, L1, L2")]
+        level: Option<String>,
+    },
+
+    /// 提交目录（触发摘要聚合）
+    Commit {
+        #[arg(help = "Viking URI（目录）")]
+        uri: String,
     },
 }
 
@@ -1213,28 +1322,36 @@ pub enum FsOperation {
 
 #[derive(Subcommand)]
 pub enum KvOperation {
+    /// Get value by key
     Get {
         #[arg(short, long)]
         key: String,
     },
+    /// Set key-value pair
     Put {
         #[arg(short, long)]
         key: String,
         #[arg(short, long)]
         value: String,
     },
+    /// Delete a key
     Del {
         #[arg(short, long)]
         key: String,
     },
+    /// Scan keys by prefix
     Scan {
         #[arg(short, long)]
         prefix: String,
         #[arg(short, long, default_value = "100")]
         limit: usize,
     },
+    /// Batch operations (put/delete multiple keys)
+    /// When --file is "-", reads JSON array from stdin
+    /// Format: [{"op": "put", "key": "k1", "value": "v1"}, {"op": "delete", "key": "k2"}]
     Batch {
-        #[arg(short, long)]
+        /// File path containing batch operations JSON, or "-" for stdin
+        #[arg(short, long, default_value = "-")]
         file: String,
     },
 }
@@ -1290,32 +1407,114 @@ pub enum OutputFormat {
 }
 ```
 
-### 7.3 使用示例
+### 7.3 JSON 输出格式
+
+所有 CLI 命令返回统一的 JSON 响应格式 `CliResponse<T>`：
+
+```rust
+/// Unified JSON response structure for CLI output
+#[derive(Serialize)]
+pub struct CliResponse<T: Serialize> {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+```
+
+**响应示例：**
+
+```json
+// 成功响应
+{
+  "success": true,
+  "data": {
+    "key": "user:1:name",
+    "value": "Alice"
+  }
+}
+
+// 错误响应
+{
+  "success": false,
+  "error": "Key not found: user:1:name"
+}
+```
+
+**退出码规范：**
+- `0`: 成功
+- `1`: 用户错误（参数错误、文件不存在等）
+- `2`: 系统错误（存储错误、内部错误等）
+
+### 7.4 使用示例
 
 ```bash
-# 文件系统操作
+# === VikingFS 顶层命令 ===
+# 创建目录
+rustviking mkdir viking://resources/project/docs
+
+# 写入文件
+rustviking write viking://resources/doc.md -d "Hello World" --auto-summary
+
+# 读取文件
+rustviking read viking://resources/doc.md
+rustviking read viking://resources/doc.md -l L0  # 读取 L0 摘要
+
+# 列出目录
+rustviking ls viking://resources/
+rustviking ls viking://resources/ -r  # 递归列出
+
+# 文件信息
+rustviking stat viking://resources/doc.md
+
+# 摘要操作
+rustviking abstract viking://resources/doc.md  # 读取 L0 摘要
+rustviking overview viking://resources/        # 读取 L1 概述
+rustviking detail viking://resources/doc.md    # 读取 L2 完整内容
+
+# 语义搜索
+rustviking find "search query" -k 10
+rustviking find "query" -t viking://resources/ -k 5 -l L1
+
+# 提交目录（触发摘要聚合）
+rustviking commit viking://resources/
+
+# === 文件系统命令 ===
 rustviking fs mkdir viking://resources/project/docs
 rustviking fs ls viking://resources/project/
 rustviking fs write viking://resources/doc.md --data "Hello World"
 rustviking fs cat viking://resources/doc.md
 rustviking fs stat viking://resources/doc.md
 
-# 键值存储操作
-rustviking kv put --key "user:1:name" --value "Alice"
-rustviking kv get --key "user:1:name"
+# === 键值存储操作 ===
+rustviking kv put -k "user:1:name" -v "Alice"
+rustviking kv get -k "user:1:name"
 rustviking kv scan --prefix "user:1:" --limit 100
 
-# 向量索引操作
-rustviking index insert --id 1 --vector 0.1,0.2,0.3,0.4 --level 2
-rustviking index search --query 0.1,0.2,0.3,0.4 --k 10 --level 1
+# KV 批量操作（从文件）
+rustviking kv batch -f operations.json
+
+# KV 批量操作（从 stdin）
+cat << 'EOF' | rustviking kv batch -f -
+[{"op": "put", "key": "k1", "value": "v1"}, {"op": "delete", "key": "k2"}]
+EOF
+
+# === 向量索引操作 ===
+rustviking index insert -i 1 --vector 0.1,0.2,0.3,0.4 -l 2
+rustviking index search -q 0.1,0.2,0.3,0.4 -k 10
 rustviking index info
 
-# 服务器模式
+# === 服务器模式 ===
 rustviking server start --port 8080
+rustviking server status
+rustviking server stop
 
-# 基准测试
-rustviking bench kv-write --count 10000
-rustviking bench vector-search --count 1000
+# === 基准测试 ===
+rustviking bench kv-write -c 10000
+rustviking bench kv-read -c 10000
+rustviking bench vector-search -c 1000
+rustviking bench bitmap-ops -c 10000
 ```
 
 ---
@@ -1538,17 +1737,72 @@ default_account = "default"
 ```bash
 # 插入向量（768 维，模拟 embedding）
 ./rustviking index insert \
-  --id 1 \
+  -i 1 \
   --vector 0.1,0.2,0.3,0.4,...（768个数值） \
-  --level 2
+  -l 2
 
 # 搜索相似向量
 ./rustviking index search \
-  --query 0.1,0.2,0.3,0.4,...（768个数值） \
-  --k 10
+  -q 0.1,0.2,0.3,0.4,...（768个数值） \
+  -k 10
 
 # 查看索引信息
 ./rustviking index info
+```
+
+#### KV 批量操作
+
+```bash
+# 从文件批量操作
+./rustviking kv batch -f operations.json
+
+# 从 stdin 批量操作（管道方式）
+cat << 'EOF' | ./rustviking kv batch -f -
+[
+  {"op": "put", "key": "user:1:name", "value": "Alice"},
+  {"op": "put", "key": "user:1:email", "value": "alice@example.com"},
+  {"op": "delete", "key": "user:temp:key"}
+]
+EOF
+
+# operations.json 格式示例
+[
+  {"op": "put", "key": "key1", "value": "value1"},
+  {"op": "put", "key": "key2", "value": "value2"},
+  {"op": "delete", "key": "old_key"}
+]
+```
+
+#### 基准测试
+
+```bash
+# KV 写入性能测试（10000 次操作）
+./rustviking bench kv-write -c 10000
+
+# KV 读取性能测试
+./rustviking bench kv-read -c 10000
+
+# 向量搜索性能测试
+./rustviking bench vector-search -c 1000
+
+# 位图运算性能测试
+./rustviking bench bitmap-ops -c 10000
+
+# 输出示例（JSON 格式）
+{
+  "success": true,
+  "data": {
+    "test": "kv-write",
+    "count": 10000,
+    "total_ms": 245.67,
+    "qps": 40705.8,
+    "avg_us": 24.5,
+    "p50_us": 22.1,
+    "p99_us": 45.3,
+    "min_us": 15.2,
+    "max_us": 120.5
+  }
+}
 ```
 
 ### 9.5 跨语言调用示例

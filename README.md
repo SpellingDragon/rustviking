@@ -31,6 +31,9 @@
 | **L0/L1 Summary Layer** | ✅ Heuristic | Automatic abstract/overview generation |
 | **VikingFS Core** | ✅ Ready | Unified abstraction layer for AGFS and Vector Store |
 | **VikingFS CLI** | ✅ 12 Commands | read/write/mkdir/rm/mv/ls/stat/abstract/overview/detail/find/commit |
+| **统一 JSON 输出** | ✅ Ready | 所有 CLI 命令返回统一 CliResponse JSON 格式 |
+| **CLI Bench 命令** | ✅ Ready | 内置性能测试：kv-write/kv-read/vector-search/bitmap-ops |
+| **KV Batch 操作** | ✅ Ready | 支持从文件或 stdin 批量执行 put/delete 操作 |
 | **OpenAI Embedding** | ✅ Ready | Compatible with OpenAI API embedding services |
 | **SIMD Optimization** | ✅ Ready | ARM NEON / x86 AVX2/FMA acceleration (4-8x speedup) |
 | **Qdrant Vector Store** | 🆕 New | Async VectorStore adapter for Qdrant cloud/local |
@@ -86,7 +89,7 @@ cargo build --release
 
 # VikingFS commands (top-level)
 ./rustviking mkdir viking://resources/project/docs
-./rustviking write viking://resources/doc.md "Hello, RustViking!"
+./rustviking write viking://resources/doc.md -d "Hello, RustViking!"
 ./rustviking read viking://resources/doc.md
 ./rustviking ls viking://resources/
 ./rustviking stat viking://resources/doc.md
@@ -98,14 +101,21 @@ cargo build --release
 ./rustviking commit viking://resources/            # Trigger summary aggregation
 
 # Search commands
-./rustviking find "authentication" --k 10          # Semantic search
-./rustviking find --regex "oauth|jwt"              # Regex search
+./rustviking find "authentication" -k 10           # Semantic search
+./rustviking find "query" -t viking://resources/ -k 5 -l L1
 
 # Legacy commands
-./rustviking kv put --key "user:1:name" --value "Alice"
-./rustviking kv get --key "user:1:name"
-./rustviking index insert --id 1 --vector 0.1,0.2,0.3,0.4 --level 2
-./rustviking index search --query 0.1,0.2,0.3,0.4 --k 10
+./rustviking kv put -k "user:1:name" -v "Alice"
+./rustviking kv get -k "user:1:name"
+./rustviking kv batch -f - < batch_ops.json       # Batch operations from stdin
+./rustviking index insert -i 1 --vector 0.1,0.2,0.3,0.4 -l 2
+./rustviking index search -q 0.1,0.2,0.3,0.4 -k 10
+
+# Benchmark commands
+./rustviking bench kv-write -c 10000              # KV write benchmark
+./rustviking bench kv-read -c 10000               # KV read benchmark
+./rustviking bench vector-search -c 1000          # Vector search benchmark
+./rustviking bench bitmap-ops -c 10000            # Bitmap operations benchmark
 ```
 
 ---
@@ -211,12 +221,14 @@ See `benches/compute_bench.rs` for benchmark comparisons between SIMD and scalar
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `kv get` | Get value | `rustviking kv get --key "user:1:name"` |
-| `kv put` | Set key-value | `rustviking kv put --key "user:1:name" --value "Alice"` |
-| `kv del` | Delete key | `rustviking kv del --key "user:1:name"` |
+| `kv get` | Get value | `rustviking kv get -k "user:1:name"` |
+| `kv put` | Set key-value | `rustviking kv put -k "user:1:name" -v "Alice"` |
+| `kv del` | Delete key | `rustviking kv del -k "user:1:name"` |
 | `kv scan` | Prefix scan | `rustviking kv scan --prefix "user:" --limit 100` |
-| `index insert` | Insert vector | `rustviking index insert --id 1 --vector 0.1,0.2 --level 2` |
-| `index search` | Vector search | `rustviking index search --query 0.1,0.2 --k 10` |
+| `kv batch` | Batch operations | `rustviking kv batch -f ops.json` or `cat ops.json \| rustviking kv batch -f -` |
+| `index insert` | Insert vector | `rustviking index insert -i 1 --vector 0.1,0.2 -l 2` |
+| `index search` | Vector search | `rustviking index search -q 0.1,0.2 -k 10` |
+| `bench` | Benchmark tests | `rustviking bench kv-write -c 10000` |
 
 ---
 
@@ -254,6 +266,10 @@ provider = "heuristic"  # Options: "noop", "heuristic"
 ```
 
 See [config.toml.example](config.toml.example) for full configuration options.
+
+### CLI Reference
+
+For detailed CLI API documentation, see `docs/cli-api-specification.md` (即将创建).
 
 ### Vector Store Backends
 

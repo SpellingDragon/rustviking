@@ -219,6 +219,14 @@ pub enum KvOperation {
         #[arg(short, long, default_value = "100")]
         limit: usize,
     },
+    /// Batch operations (put/delete multiple keys)
+    /// When --file is "-", reads JSON array from stdin
+    /// Format: [{"op": "put", "key": "k1", "value": "v1"}, {"op": "delete", "key": "k2"}]
+    Batch {
+        /// File path containing batch operations JSON, or "-" for stdin
+        #[arg(short, long, default_value = "-")]
+        file: String,
+    },
 }
 
 #[derive(Subcommand)]

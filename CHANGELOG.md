@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DirectorySummaryAggregator for bottom-up summary aggregation
 - HeuristicSummaryProvider with Markdown-aware extraction
 - VikingFS end-to-end tests (`tests/vikingfs_test.rs`)
+- **CLI 输出标准化**：统一 JSON 响应格式 `CliResponse<T>`，所有命令返回 `{success, data, error}` 结构
+- **退出码标准化**：0=成功, 1=用户错误, 2=系统错误
+- **新增 `kv batch` 命令**：支持从文件或 stdin 批量执行 put/delete 操作，JSON 格式 `[{"op": "put", "key": "k1", "value": "v1"}]`
+- **新增 `bench` 命令**：内置性能测试，支持 `kv-write`/`kv-read`/`vector-search`/`bitmap-ops` 四种测试类型
+- **新增 CLI 错误分类**：`CliInput` 错误类型用于处理用户输入错误
+- **补充 AGFS/索引/KV 测试**：约 100 个新测试用例，覆盖核心功能
+- **插件架构预留**：`config.toml.example` 增加云存储扩展注释（S3FS/SQLFS/QueueFS）
 
 ### Changed
 - VectorStore trait refactored to async (OpenViking CollectionAdapter pattern)

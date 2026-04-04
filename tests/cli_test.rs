@@ -208,7 +208,7 @@ fn test_cli_bench_command() {
     cmd.args(["bench", "kv-write", "-c", "10"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("info").or(predicate::str::contains("Benchmark")));
+        .stdout(predicate::str::contains("success").or(predicate::str::contains("Benchmark")));
 }
 
 #[test]
