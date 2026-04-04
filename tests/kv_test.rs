@@ -507,7 +507,7 @@ fn test_kv_unicode_keys() {
     let (store, _temp_dir) = create_test_kvstore();
 
     // Unicode keys
-    let keys = vec![
+    let keys = [
         "中文键",
         "日本語キー",
         "한국어 키",
@@ -535,7 +535,7 @@ fn test_kv_special_character_keys() {
     let (store, _temp_dir) = create_test_kvstore();
 
     // Keys with special characters
-    let keys = vec![
+    let keys = [
         "key:with:colons",
         "key/with/slashes",
         "key with spaces",
@@ -562,7 +562,7 @@ fn test_kv_special_character_keys() {
 fn test_kv_unicode_values() {
     let (store, _temp_dir) = create_test_kvstore();
 
-    let values = vec!["中文值", "日本語バリュー", "한국어 값", "emoji 🎊 🎉 🚀"];
+    let values = ["中文值", "日本語バリュー", "한국어 값", "emoji 🎊 🎉 🚀"];
 
     for (i, value) in values.iter().enumerate() {
         let key = format!("key_{}", i);

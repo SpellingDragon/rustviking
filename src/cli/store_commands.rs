@@ -106,7 +106,7 @@ pub fn exec_kv_batch(store: &dyn KvStore, file: &str, format: &OutputFormat) -> 
         buffer
     } else {
         // Read from file
-        std::fs::read_to_string(file).map_err(|e| RustVikingError::Io(e))?
+        std::fs::read_to_string(file).map_err(RustVikingError::Io)?
     };
 
     // Parse operations

@@ -3,7 +3,6 @@
 //! Tests AGFS filesystem with MemoryPlugin.
 
 use rustviking::agfs::{MountableFS, VikingUri, WriteFlag};
-use rustviking::error::RustVikingError;
 use rustviking::plugins::memory::MemoryPlugin;
 use std::sync::Arc;
 
@@ -318,7 +317,7 @@ fn test_agfs_longest_prefix_match() {
     .unwrap();
 
     // /a/b/c should route to /a/b (longest prefix)
-    let data = agfs
+    let _data = agfs
         .route_operation("/a/b/c/file.txt", |fs| fs.read("/a/b/c/file.txt", 0, 0))
         .unwrap_or_default();
     // This will fail because /a/b/c/file.txt doesn't exist, but it should try /a/b first
