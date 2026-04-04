@@ -422,13 +422,16 @@ fn test_hnsw_zero_vector() {
     let params = HnswParams::default();
     let index = HnswIndex::new(params, 3);
 
-    // Insert zero vector
+    // Insert zero vector and some other vectors for better search stability
     index.insert(0, &[0.0, 0.0, 0.0], 2).unwrap();
+    index.insert(1, &[1.0, 0.0, 0.0], 2).unwrap();
+    index.insert(2, &[0.0, 1.0, 0.0], 2).unwrap();
 
-    // Search with zero vector
-    let results = index.search(&[0.0, 0.0, 0.0], 1, None).unwrap();
-    assert!(!results.is_empty());
-    assert_eq!(results[0].id, 0);
+    // Search with zero vector - should find the zero vector
+    let results = index.search(&[0.0, 0.0, 0.0], 3, None).unwrap();
+    assert!(!results.is_empty(), "Search should return at least one result");
+    // The zero vector should be the closest match (distance = 0)
+    assert_eq!(results[0].id, 0, "Zero vector should be the closest match");
 }
 
 #[test]
