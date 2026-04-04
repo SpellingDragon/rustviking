@@ -117,7 +117,10 @@ fn test_kv_range_start_equals_end() {
 
     // start == end should return empty
     let results = store.range(b"b", b"b").unwrap();
-    assert!(results.is_empty(), "start == end should return empty results");
+    assert!(
+        results.is_empty(),
+        "start == end should return empty results"
+    );
 }
 
 #[test]
@@ -130,7 +133,10 @@ fn test_kv_range_start_greater_than_end() {
 
     // start > end should return empty (iterator won't find anything)
     let results = store.range(b"c", b"a").unwrap();
-    assert!(results.is_empty(), "start > end should return empty results");
+    assert!(
+        results.is_empty(),
+        "start > end should return empty results"
+    );
 }
 
 #[test]
@@ -207,7 +213,10 @@ fn test_kv_scan_prefix_empty_results() {
 
     // Non-existent prefix should return empty
     let results = store.scan_prefix(b"nonexistent:").unwrap();
-    assert!(results.is_empty(), "Non-existent prefix should return empty array");
+    assert!(
+        results.is_empty(),
+        "Non-existent prefix should return empty array"
+    );
 }
 
 #[test]
@@ -224,11 +233,11 @@ fn test_kv_scan_prefix_partial_match() {
 
     store.put(b"prefix_a", b"1").unwrap();
     store.put(b"prefix_b", b"2").unwrap();
-    store.put(b"prefix", b"3").unwrap();  // Just the prefix, no suffix
+    store.put(b"prefix", b"3").unwrap(); // Just the prefix, no suffix
     store.put(b"other", b"4").unwrap();
 
     let results = store.scan_prefix(b"prefix").unwrap();
-    assert_eq!(results.len(), 3);  // prefix, prefix_a, prefix_b
+    assert_eq!(results.len(), 3); // prefix, prefix_a, prefix_b
 }
 
 // ========================================
@@ -482,7 +491,7 @@ fn test_kv_binary_keys() {
     // Keys with binary data (non-UTF8)
     let key1 = vec![0x00, 0x01, 0x02, 0x03];
     let key2 = vec![0xFF, 0xFE, 0xFD];
-    let key3 = vec![0x00, 0x00, 0x00];  // Null bytes
+    let key3 = vec![0x00, 0x00, 0x00]; // Null bytes
 
     store.put(&key1, b"value1").unwrap();
     store.put(&key2, b"value2").unwrap();
@@ -553,12 +562,7 @@ fn test_kv_special_character_keys() {
 fn test_kv_unicode_values() {
     let (store, _temp_dir) = create_test_kvstore();
 
-    let values = vec![
-        "中文值",
-        "日本語バリュー",
-        "한국어 값",
-        "emoji 🎊 🎉 🚀",
-    ];
+    let values = vec!["中文值", "日本語バリュー", "한국어 값", "emoji 🎊 🎉 🚀"];
 
     for (i, value) in values.iter().enumerate() {
         let key = format!("key_{}", i);
@@ -640,7 +644,7 @@ fn test_kv_lexicographic_ordering() {
     // Range [key1, key3) includes key1, key10, key2, key20 (key20 < key3 in lexicographic order)
     let results = store.range(b"key1", b"key3").unwrap();
     // key20 comes before key3 in lexicographic order: "key20" < "key3" because 'k'='k', 'e'='e', 'y'='y', '2' < '3'
-    assert_eq!(results.len(), 4);  // key1, key10, key2, key20
+    assert_eq!(results.len(), 4); // key1, key10, key2, key20
     assert_eq!(results[0].0, b"key1");
     assert_eq!(results[1].0, b"key10");
     assert_eq!(results[2].0, b"key2");

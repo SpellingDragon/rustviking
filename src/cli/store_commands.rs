@@ -4,7 +4,7 @@ use std::io::{self, Read};
 
 use crate::cli::commands::OutputFormat;
 use crate::cli::{success, CliResponse};
-use crate::error::{RustVikingError, Result};
+use crate::error::{Result, RustVikingError};
 use crate::storage::KvStore;
 use serde::{Deserialize, Serialize};
 
@@ -33,12 +33,10 @@ pub fn exec_kv_get(store: &dyn KvStore, key: &str, format: &OutputFormat) -> Res
                 "value": text,
             }))
         }
-        None => {
-            success(serde_json::json!({
-                "key": key,
-                "value": serde_json::Value::Null,
-            }))
-        }
+        None => success(serde_json::json!({
+            "key": key,
+            "value": serde_json::Value::Null,
+        })),
     };
     output_result(&response, format);
     Ok(())
@@ -97,11 +95,7 @@ pub fn exec_kv_scan(
 }
 
 /// Execute batch operations from file or stdin
-pub fn exec_kv_batch(
-    store: &dyn KvStore,
-    file: &str,
-    format: &OutputFormat,
-) -> Result<()> {
+pub fn exec_kv_batch(store: &dyn KvStore, file: &str, format: &OutputFormat) -> Result<()> {
     // Read input
     let input = if file == "-" {
         // Read from stdin
@@ -112,8 +106,7 @@ pub fn exec_kv_batch(
         buffer
     } else {
         // Read from file
-        std::fs::read_to_string(file)
-            .map_err(|e| RustVikingError::Io(e))?
+        std::fs::read_to_string(file).map_err(|e| RustVikingError::Io(e))?
     };
 
     // Parse operations
@@ -127,18 +120,14 @@ pub fn exec_kv_batch(
 
     for (i, op) in ops.into_iter().enumerate() {
         match op {
-            BatchOp::Put { key, value } => {
-                match store.put(key.as_bytes(), value.as_bytes()) {
-                    Ok(()) => put_count += 1,
-                    Err(e) => errors.push(format!("Operation {} (put {}): {}", i, key, e)),
-                }
-            }
-            BatchOp::Delete { key } => {
-                match store.delete(key.as_bytes()) {
-                    Ok(()) => delete_count += 1,
-                    Err(e) => errors.push(format!("Operation {} (delete {}): {}", i, key, e)),
-                }
-            }
+            BatchOp::Put { key, value } => match store.put(key.as_bytes(), value.as_bytes()) {
+                Ok(()) => put_count += 1,
+                Err(e) => errors.push(format!("Operation {} (put {}): {}", i, key, e)),
+            },
+            BatchOp::Delete { key } => match store.delete(key.as_bytes()) {
+                Ok(()) => delete_count += 1,
+                Err(e) => errors.push(format!("Operation {} (delete {}): {}", i, key, e)),
+            },
         }
     }
 
@@ -159,7 +148,7 @@ pub fn exec_kv_batch(
             "errors": errors,
         }))
     };
-    
+
     output_result(&response, format);
     Ok(())
 }

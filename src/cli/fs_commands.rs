@@ -95,12 +95,7 @@ pub fn exec_write(fs: &MountableFS, path: &str, data: &str, format: &OutputForma
 }
 
 /// Execute rm command
-pub fn exec_rm(
-    fs: &MountableFS,
-    path: &str,
-    recursive: bool,
-    format: &OutputFormat,
-) -> Result<()> {
+pub fn exec_rm(fs: &MountableFS, path: &str, recursive: bool, format: &OutputFormat) -> Result<()> {
     let internal_path = resolve_path(path)?;
 
     if recursive {

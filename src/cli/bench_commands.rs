@@ -61,7 +61,10 @@ impl LatencyStats {
         if self.latencies.is_empty() {
             0.0
         } else {
-            self.latencies.iter().copied().fold(f64::MAX, |a, b| a.min(b))
+            self.latencies
+                .iter()
+                .copied()
+                .fold(f64::MAX, |a, b| a.min(b))
         }
     }
 
@@ -70,7 +73,10 @@ impl LatencyStats {
         if self.latencies.is_empty() {
             0.0
         } else {
-            self.latencies.iter().copied().fold(f64::MIN, |a, b| a.max(b))
+            self.latencies
+                .iter()
+                .copied()
+                .fold(f64::MIN, |a, b| a.max(b))
         }
     }
 

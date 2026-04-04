@@ -182,7 +182,9 @@ fn test_ivf_persist_level_filter_after_restore() {
     let restored = persister.restore_index().unwrap();
 
     // Search with level filter
-    let results = restored.search(&[1.0, 0.0, 0.0], 10, Some(LEVEL_L0)).unwrap();
+    let results = restored
+        .search(&[1.0, 0.0, 0.0], 10, Some(LEVEL_L0))
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].id, 1);
     assert_eq!(results[0].level, LEVEL_L0);
@@ -246,7 +248,9 @@ fn test_hnsw_persist_level_filter_after_restore() {
     let restored = persister.restore_index().unwrap();
 
     // Verify level filter
-    let results = restored.search(&[1.0, 0.0, 0.0], 10, Some(LEVEL_L0)).unwrap();
+    let results = restored
+        .search(&[1.0, 0.0, 0.0], 10, Some(LEVEL_L0))
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].id, 1);
     assert_eq!(results[0].level, LEVEL_L0);
@@ -317,7 +321,7 @@ fn test_hnsw_large_scale_insertion() {
 #[test]
 fn test_ivf_delete_and_search() {
     let params = IvfParams {
-        num_partitions: 2,  // Use fewer partitions for better coverage
+        num_partitions: 2, // Use fewer partitions for better coverage
         metric: MetricType::L2,
     };
     let index = IvfIndex::new(params, 3);
@@ -401,10 +405,7 @@ fn test_ivf_zero_vector() {
     let index = IvfIndex::new(params, 3);
 
     // Train with some data
-    let train_data: Vec<Vec<f32>> = vec![
-        vec![1.0, 0.0, 0.0],
-        vec![0.0, 1.0, 0.0],
-    ];
+    let train_data: Vec<Vec<f32>> = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]];
     index.train(&train_data).unwrap();
 
     // Insert zero vector
@@ -469,10 +470,7 @@ fn test_ivf_dimension_mismatch() {
 
     // Wrong dimension
     let result = index.insert(1, &[1.0, 0.0], 2);
-    assert!(
-        result.is_err(),
-        "Should fail with wrong dimension"
-    );
+    assert!(result.is_err(), "Should fail with wrong dimension");
 }
 
 #[test]
@@ -482,10 +480,7 @@ fn test_hnsw_dimension_mismatch() {
 
     // Wrong dimension
     let result = index.insert(1, &[1.0, 0.0], 2);
-    assert!(
-        result.is_err(),
-        "Should fail with wrong dimension"
-    );
+    assert!(result.is_err(), "Should fail with wrong dimension");
 }
 
 #[test]
@@ -535,7 +530,10 @@ fn test_ivf_search_empty_index() {
 
     // Search empty index
     let results = index.search(&[0.5, 0.5], 5, None).unwrap();
-    assert!(results.is_empty(), "Empty index should return empty results");
+    assert!(
+        results.is_empty(),
+        "Empty index should return empty results"
+    );
 }
 
 #[test]
@@ -545,7 +543,10 @@ fn test_hnsw_search_empty_index() {
 
     // Search empty index
     let results = index.search(&[0.5, 0.5], 5, None).unwrap();
-    assert!(results.is_empty(), "Empty index should return empty results");
+    assert!(
+        results.is_empty(),
+        "Empty index should return empty results"
+    );
 }
 
 // ========================================
@@ -647,20 +648,24 @@ fn test_layered_index_hierarchical_search() {
     let layered = LayeredIndex::new(inner.clone());
 
     // Train
-    let train_data: Vec<Vec<f32>> = (0..10)
-        .map(|i| vec![i as f32 / 10.0, 0.0, 0.0])
-        .collect();
+    let train_data: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32 / 10.0, 0.0, 0.0]).collect();
     inner.train(&train_data).unwrap();
 
     // Insert vectors at all levels
     for i in 0..3 {
-        layered.insert(i, &[i as f32 / 10.0, 0.0, 0.0], i as u8).unwrap();
+        layered
+            .insert(i, &[i as f32 / 10.0, 0.0, 0.0], i as u8)
+            .unwrap();
     }
     for i in 3..6 {
-        layered.insert(i, &[i as f32 / 10.0, 0.0, 0.0], LEVEL_L1).unwrap();
+        layered
+            .insert(i, &[i as f32 / 10.0, 0.0, 0.0], LEVEL_L1)
+            .unwrap();
     }
     for i in 6..10 {
-        layered.insert(i, &[i as f32 / 10.0, 0.0, 0.0], LEVEL_L2).unwrap();
+        layered
+            .insert(i, &[i as f32 / 10.0, 0.0, 0.0], LEVEL_L2)
+            .unwrap();
     }
 
     // Hierarchical search should return results

@@ -4,8 +4,8 @@ use clap::Parser;
 
 use rustviking::agfs::MountableFS;
 use rustviking::cli::commands::*;
-use rustviking::cli::{fs_commands, index_commands, store_commands, viking_commands};
 use rustviking::cli::{error, CliResponse};
+use rustviking::cli::{fs_commands, index_commands, store_commands, viking_commands};
 use rustviking::config::Config;
 use rustviking::embedding::mock::MockEmbeddingProvider;
 use rustviking::embedding::openai::OpenAIEmbeddingProvider;

@@ -110,7 +110,9 @@ fn test_filesystem_remove() {
         .unwrap();
 
     let exists: bool = agfs
-        .route_operation("/test/to_remove.txt", |fs| Ok(fs.exists("/test/to_remove.txt")))
+        .route_operation("/test/to_remove.txt", |fs| {
+            Ok(fs.exists("/test/to_remove.txt"))
+        })
         .unwrap();
     assert!(!exists, "File should not exist after remove");
 }
@@ -130,10 +132,14 @@ fn test_filesystem_rename() {
     .unwrap();
 
     let old_exists: bool = agfs
-        .route_operation("/test/old_name.txt", |fs| Ok(fs.exists("/test/old_name.txt")))
+        .route_operation("/test/old_name.txt", |fs| {
+            Ok(fs.exists("/test/old_name.txt"))
+        })
         .unwrap();
     let new_exists: bool = agfs
-        .route_operation("/test/new_name.txt", |fs| Ok(fs.exists("/test/new_name.txt")))
+        .route_operation("/test/new_name.txt", |fs| {
+            Ok(fs.exists("/test/new_name.txt"))
+        })
         .unwrap();
 
     assert!(!old_exists, "Old file should not exist after rename");
@@ -154,7 +160,11 @@ fn test_filesystem_size() {
         .route_operation("/test/size_test.txt", |fs| fs.size("/test/size_test.txt"))
         .unwrap();
 
-    assert_eq!(size, content.len() as u64, "Size should match content length");
+    assert_eq!(
+        size,
+        content.len() as u64,
+        "Size should match content length"
+    );
 }
 
 #[test]
@@ -270,9 +280,15 @@ fn test_agfs_multi_mount_routing() {
     agfs.mount("/gamma", Arc::new(mem3), 100).unwrap();
 
     // Verify each routes correctly
-    assert!(agfs.route("/alpha/file").is_some(), "Should route to /alpha");
+    assert!(
+        agfs.route("/alpha/file").is_some(),
+        "Should route to /alpha"
+    );
     assert!(agfs.route("/beta/file").is_some(), "Should route to /beta");
-    assert!(agfs.route("/gamma/file").is_some(), "Should route to /gamma");
+    assert!(
+        agfs.route("/gamma/file").is_some(),
+        "Should route to /gamma"
+    );
     assert!(
         agfs.route("/delta/file").is_none(),
         "Should not route to unmounted path"
